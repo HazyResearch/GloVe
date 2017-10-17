@@ -7,13 +7,14 @@ import os
 import struct
 
 class Embedding(object):
-    def __init__(self, dim=300):
+    def __init__(self, dim=200):
         self.dim = dim
 
     def load(self, cooccurrence, vocab, embedding=None):
         self.n = cooccurrence.size()[0]
 
         self.cooccurrence = cooccurrence
+        self.cooccurrence._values().log1p_()
         self.vocab = vocab
         self.prev = None
 
@@ -37,23 +38,18 @@ class Embedding(object):
             self.words = [l[0] for l in lines]
             vocab = torch.DoubleTensor([l[1] for l in lines])
         n = vocab.size()[0]
+        print("n:", n)
 
         filesize = os.stat("cooccurrence.shuf.bin").st_size
         assert(filesize % 16 == 0)
         nnz = filesize / 16
-        # v = np.zeros(nnz, np.float64)
-        # v = torch.zeros([nnz])
-        # v = v.type(torch.DoubleTensor)
-        # ind = torch.zeros(2, nnz)
-        # ind = ind.type(torch.LongTensor)
+        print("nnz:", nnz)
         v = np.empty(nnz, np.float64)
         ind = np.empty((2, nnz), np.int64) # TODO: binary format is int32, but torch uses Long
         with open("cooccurrence.shuf.bin", "rb") as f:
             content = f.read()
-            # for i in range(min(nnz, 10000000)):
-            # for i in range(min(nnz, 100000)):
             i = 0
-            block = 100
+            block = 1000
             while i < nnz:
                 block = min(block, nnz - i)
                 line = struct.unpack("iid" * block, content[(16 * i):(16 * (i + block))])
@@ -74,16 +70,21 @@ class Embedding(object):
     def normalize(self):
         # TODO: is it necessary to reorder columns by magnitude
         begin = time.time()
+        norm = torch.norm(self.embedding, 2, 0, True)
+        print(norm)
+        # self.embedding = self.embedding.div(norm.expand_as(self.embedding))
         self.embedding, r = torch.qr(self.embedding)
+        norm = torch.norm(self.embedding, 2, 0, True)
+        print(norm)
         if self.prev is not None:
             self.prev = torch.mm(self.prev, torch.inverse(r))
         end = time.time()
         print("Normalizing took", end - begin)
 
-    def power_iteration(self, iterations=1, beta=0.0, norm_freq=1):
+    def power_iteration(self, iterations=50, beta=0.0, norm_freq=1):
         begin = time.time()
-        self.cooccurrence.cuda()
-        self.embedding.cuda()
+        self.cooccurrence = self.cooccurrence.cuda()
+        self.embedding = self.embedding.cuda()
         if beta == 0:
             self.prev = None
         else:
@@ -115,7 +116,7 @@ class Embedding(object):
         print("Final scaling:", end - begin)
 
         begin = time.time()
-        self.embedding.cpu()
+        self.embedding = self.embedding.cpu()
         end = time.time()
         print("CPU Loading:", end - begin)
 
@@ -138,10 +139,6 @@ def synthetic(n, nnz):
     v = v.type(torch.DoubleTensor)
     ind = torch.rand(1, nnz) * torch.Tensor([n, n]).repeat(nnz, 1).transpose(0, 1)
     ind = ind.type(torch.LongTensor)
-    # for i in range(nnz):
-    #     ind[0, i] = i
-    #     ind[1, i] = i
-    #     v[i] = 2
 
     cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n])).coalesce()
     vocab = None
