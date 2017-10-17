@@ -37,3 +37,6 @@ build/*
 
 # OS X stuff
 ._*
+
+# Python
+*.pyc
