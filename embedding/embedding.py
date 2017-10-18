@@ -109,7 +109,7 @@ class Embedding(object):
 
     def normalize_embeddings(self):
         norm = torch.norm(self.embedding, 2, 1, True)
-        self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
+        self.embedding = self.embedding.div(norm.expand_as(self.embedding))
 
     def save_to_file(self):
         begin = time.time()
