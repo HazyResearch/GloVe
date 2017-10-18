@@ -1,6 +1,4 @@
-"""."""
-
 from .embedding import Embedding
 from .embedding import main
 
-__all__ = ('embedding')
+__all__ = ('embedding', 'solver')

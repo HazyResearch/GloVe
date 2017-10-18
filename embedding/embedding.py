@@ -6,6 +6,9 @@ import time
 import os
 import struct
 
+import solver
+import util
+
 class Embedding(object):
     def __init__(self, dim=200):
         self.dim = dim
@@ -16,11 +19,10 @@ class Embedding(object):
         self.cooccurrence = cooccurrence
         self.cooccurrence._values().log1p_()
         self.vocab = vocab
-        self.prev = None
 
         if embedding is None:
             self.embedding = torch.randn([self.n, self.dim]).type(torch.DoubleTensor)
-            self.normalize()
+            self.embedding, _ = util.normalize(self.embedding)
         else:
             self.embedding = embedding
 
@@ -67,61 +69,8 @@ class Embedding(object):
         end = time.time()
         print("Loading data took", end - begin)
 
-    def normalize(self):
-        # TODO: is it necessary to reorder columns by magnitude
-        begin = time.time()
-        norm = torch.norm(self.embedding, 2, 0, True)
-        print(norm)
-        # self.embedding = self.embedding.div(norm.expand_as(self.embedding))
-        self.embedding, r = torch.qr(self.embedding)
-        norm = torch.norm(self.embedding, 2, 0, True)
-        print(norm)
-        if self.prev is not None:
-            self.prev = torch.mm(self.prev, torch.inverse(r))
-        end = time.time()
-        print("Normalizing took", end - begin)
-
-    def power_iteration(self, iterations=50, beta=0.0, norm_freq=1):
-        begin = time.time()
-        self.cooccurrence = self.cooccurrence.cuda()
-        self.embedding = self.embedding.cuda()
-        if beta == 0:
-            self.prev = None
-        else:
-            self.prev = torch.zeros([self.n, self.dim]).type(torch.DoubleTensor)
-            self.prev.cuda()
-        end = time.time()
-        print("GPU Loading:", end - begin)
-
-        for i in range(iterations):
-            begin = time.time()
-            if beta == 0:
-                self.embedding = torch.mm(self.cooccurrence, self.embedding)
-            else:
-                self.embedding = torch.mm(self.cooccurrence, self.embedding) - beta * self.prev
-            end = time.time()
-            print("Iteration", i + 1, "took", end - begin)
-
-            if (i + 1) % norm_freq == 0:
-                self.normalize()
-
-        if iterations % norm_freq != 0:
-            # Only normalize if the last iteration did not
-            self.normalize()
-
-        # Scale correctly
-        begin = time.time()
-        self.embedding = torch.mm(self.cooccurrence, self.embedding)
-        end = time.time()
-        print("Final scaling:", end - begin)
-
-        begin = time.time()
-        self.embedding = self.embedding.cpu()
-        end = time.time()
-        print("CPU Loading:", end - begin)
-
-    def vr(self):
-        pass
+    def solve(self):
+        self.embedding, _ = solver.power_iteration(self.cooccurrence, self.embedding)
 
     def save_to_file(self):
         begin = time.time()
@@ -132,26 +81,9 @@ class Embedding(object):
         print("Saving embeddings:", end - begin)
 
 
-def synthetic(n, nnz):
-    """This function generates a synthetic matrix."""
-    begin = time.time()
-    v = torch.randn([nnz])
-    v = v.type(torch.DoubleTensor)
-    ind = torch.rand(1, nnz) * torch.Tensor([n, n]).repeat(nnz, 1).transpose(0, 1)
-    ind = ind.type(torch.LongTensor)
-
-    cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n])).coalesce()
-    vocab = None
-    end = time.time()
-    print("Generating synthetic data:", end - begin)
-
-    return cooccurrence, vocab
-
-
 def main(argv=None):
-
     embedding = Embedding()
     embedding.load_from_file()
-    # embedding.load(*synthetic(500000, 10000000))
-    embedding.power_iteration()
+    # embedding.load(*util.synthetic(500, 10000))
+    embedding.solve()
     embedding.save_to_file()
