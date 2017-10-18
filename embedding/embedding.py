@@ -85,6 +85,7 @@ class Embedding(object):
 
         self.embedding, _ = solver.power_iteration(self.cooccurrence, self.embedding, x0=prev)
         self.scale(0.5)
+        self.normalize_embeddings()
 
         if gpu:
             begin = time.time()
@@ -106,6 +107,9 @@ class Embedding(object):
         end = time.time()
         print("Final scaling:", end - begin)
 
+    def normalize_embeddings(self):
+        norm = torch.norm(self.embedding, 2, 1, True)
+        self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
 
     def save_to_file(self):
         begin = time.time()
