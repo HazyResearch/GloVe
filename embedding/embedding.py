@@ -10,7 +10,7 @@ import solver
 import util
 
 class Embedding(object):
-    def __init__(self, dim=200):
+    def __init__(self, dim=50):
         self.dim = dim
 
     def load(self, cooccurrence, vocab, embedding=None):
@@ -19,6 +19,7 @@ class Embedding(object):
         self.cooccurrence = cooccurrence
         self.cooccurrence._values().log1p_()
         self.vocab = vocab
+        # self.words = ["word_" + str(i) for i in range(self.n)]
 
         if embedding is None:
             self.embedding = torch.randn([self.n, self.dim]).type(torch.DoubleTensor)
@@ -69,8 +70,42 @@ class Embedding(object):
         end = time.time()
         print("Loading data took", end - begin)
 
-    def solve(self):
-        self.embedding, _ = solver.power_iteration(self.cooccurrence, self.embedding)
+    def solve(self, gpu=True):
+        prev = None
+        # prev = torch.zeros([self.n, self.dim]).type(torch.DoubleTensor)
+
+        if gpu:
+            begin = time.time()
+            self.cooccurrence = self.cooccurrence.cuda()
+            self.embedding = self.embedding.cuda()
+            if prev is not None:
+                prev.cuda()
+            end = time.time()
+            print("GPU Loading:", end - begin)
+
+        self.embedding, _ = solver.power_iteration(self.cooccurrence, self.embedding, x0=prev)
+        self.scale(0.5)
+
+        if gpu:
+            begin = time.time()
+            self.embedding = self.embedding.cpu()
+            end = time.time()
+            print("CPU Loading:", end - begin)
+
+    def scale(self, p=1.):
+        """Assumes that matrix is normalized."""
+        # Scale correctly
+        begin = time.time()
+
+        # TODO: faster estimation of eigenvalues?
+        temp = torch.mm(self.cooccurrence, self.embedding)
+        norm = torch.norm(temp, 2, 0, True)
+
+        norm = norm.pow(p)
+        self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
+        end = time.time()
+        print("Final scaling:", end - begin)
+
 
     def save_to_file(self):
         begin = time.time()
@@ -84,6 +119,6 @@ class Embedding(object):
 def main(argv=None):
     embedding = Embedding()
     embedding.load_from_file()
-    # embedding.load(*util.synthetic(500, 10000))
+    # embedding.load(*util.synthetic(3, 9))
     embedding.solve()
     embedding.save_to_file()
