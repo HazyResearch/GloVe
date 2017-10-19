@@ -41,7 +41,7 @@ class Embedding(object):
         ind = self.cooccurrence._indices()
         v = self.cooccurrence._values()
         nnz = v.shape[0]
-        v = torch.log1p(v) + torch.log1p(torch.DoubleTensor(nnz).fill_(D)) - torch.log1p(wc0) - torch.log1p(wc1)
+        v = torch.log(v) + torch.log(torch.DoubleTensor(nnz).fill_(D)) - torch.log(wc0) - torch.log(wc1)
         v = v.clamp(min=0)
         self.cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
 
