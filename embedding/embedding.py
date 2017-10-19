@@ -13,19 +13,37 @@ class Embedding(object):
     def __init__(self, dim=50):
         self.dim = dim
 
-    def load(self, cooccurrence, vocab, embedding=None):
+    def load(self, cooccurrence, vocab, words, embedding=None):
         self.n = cooccurrence.size()[0]
 
+        # TODO: error if n > dim
+
         self.cooccurrence = cooccurrence
-        self.cooccurrence._values().log1p_()
         self.vocab = vocab
-        # self.words = ["word_" + str(i) for i in range(self.n)]
+        self.words = words
 
         if embedding is None:
             self.embedding = torch.randn([self.n, self.dim]).type(torch.DoubleTensor)
             self.embedding, _ = util.normalize(self.embedding)
         else:
             self.embedding = embedding
+
+        ## log occurrence
+        # self.cooccurrence._values().log1p_()
+
+        # PPMI
+        wc = torch.mm(self.cooccurrence, torch.ones([self.n, 1]).type(torch.DoubleTensor)) # individual word counts
+        D = torch.sum(wc) # total dictionary size
+        # TODO: pytorch doesn't seem to only allow indexing by vector
+        wc0 = wc[self.cooccurrence._indices()[0, :]].squeeze()
+        wc1 = wc[self.cooccurrence._indices()[1, :]].squeeze()
+
+        ind = self.cooccurrence._indices()
+        v = self.cooccurrence._values()
+        nnz = v.shape[0]
+        v = torch.log1p(v) + torch.log1p(torch.DoubleTensor(nnz).fill_(D)) - torch.log1p(wc0) - torch.log1p(wc1)
+        v = v.clamp(min=0)
+        self.cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
 
     def load_from_file(self):
 
@@ -38,7 +56,7 @@ class Embedding(object):
 
         with open("vocab.txt") as f:
             lines = [parse_line(l) for l in f]
-            self.words = [l[0] for l in lines]
+            words = [l[0] for l in lines]
             vocab = torch.DoubleTensor([l[1] for l in lines])
         n = vocab.size()[0]
         print("n:", n)
@@ -52,7 +70,7 @@ class Embedding(object):
         with open("cooccurrence.shuf.bin", "rb") as f:
             content = f.read()
             i = 0
-            block = 1000
+            block = 10000
             while i < nnz:
                 block = min(block, nnz - i)
                 line = struct.unpack("iid" * block, content[(16 * i):(16 * (i + block))])
@@ -65,7 +83,7 @@ class Embedding(object):
         ind = torch.LongTensor(ind)
         cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n])).coalesce()
 
-        self.load(cooccurrence, vocab)
+        self.load(cooccurrence, vocab, words)
 
         end = time.time()
         print("Loading data took", end - begin)
@@ -95,7 +113,6 @@ class Embedding(object):
 
     def scale(self, p=1.):
         """Assumes that matrix is normalized."""
-        # Scale correctly
         begin = time.time()
 
         # TODO: faster estimation of eigenvalues?
@@ -123,6 +140,6 @@ class Embedding(object):
 def main(argv=None):
     embedding = Embedding()
     embedding.load_from_file()
-    # embedding.load(*util.synthetic(3, 9))
+    # embedding.load(*util.synthetic(2, 4))
     embedding.solve()
     embedding.save_to_file()
