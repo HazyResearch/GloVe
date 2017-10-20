@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import scipy.stats
 
 def main():
     parser = argparse.ArgumentParser()
@@ -30,9 +31,11 @@ def main():
     W_norm = np.zeros(W.shape)
     d = (np.sum(W ** 2, 1) ** (0.5))
     W_norm = (W.T / d).T
-    evaluate_vectors(W_norm, vocab, ivocab)
+    evaluate_vectors_analogy(W_norm, vocab, ivocab)
+    # evaluate_human_sim()
+    evaluate_vectors_sim(W, vocab, ivocab)
 
-def evaluate_vectors(W, vocab, ivocab):
+def evaluate_vectors_analogy(W, vocab, ivocab):
     """Evaluate the trained word vectors on a variety of tasks"""
 
     filenames = [
@@ -105,6 +108,49 @@ def evaluate_vectors(W, vocab, ivocab):
         (100 * correct_syn / float(count_syn), correct_syn, count_syn))
     print('Total accuracy: %.2f%%  (%i/%i)' % (100 * correct_tot / float(count_tot), correct_tot, count_tot))
 
+def evaluate_vectors_sim(W, vocab, ivocab):
+    """Evaluate the trained word vectors on the WordSimilarity-353 task."""
+
+    filename = './eval/wordsim353/combined.csv'
+    # filename = './eval/wordsim353/set1.csv'
+
+    with open(filename, 'r') as f:
+        data = [line.rstrip().split(',') for line in f][1:]
+
+    # TODO: include cases where words are missing
+    data = [row for row in data if (row[0] in vocab and row[1] in vocab)]
+    words = np.array([[vocab[row[0]], vocab[row[1]]] for row in data])
+    score = np.array([float(row[2]) for row in data])
+    pred = np.sum(np.multiply(W[words[:, 0], :], W[words[:, 1], :]), 1)
+
+    rho, p = scipy.stats.spearmanr(score, pred)
+    print(rho)
+    print(p)
+
+def evaluate_human_sim():
+    """Evaluate the trained word vectors on the WordSimilarity-353 task."""
+
+    filename = './eval/wordsim353/set1.csv'
+
+    with open(filename, 'r') as f:
+        data = [line.rstrip().split(',') for line in f][1:]
+
+    # TODO: include cases where words are missing
+    mean = np.array([float(row[2]) for row in data])
+    score = np.array([[float(row[i]) for i in range(3, len(row))] for row in data])
+
+    n, m = score.shape
+    trials = 100
+    total = 0.
+    for i in range(trials):
+       group = np.zeros(m, np.bool)
+       group[np.random.choice(m, m / 2, False)] = True
+       score1 = np.mean(score[:, group], 1)
+       score2 = np.mean(score[:, np.invert(group)], 1)
+
+       rho, p = scipy.stats.spearmanr(score1, score2)
+       total += rho
+    print(total / trials)
 
 if __name__ == "__main__":
     main()
