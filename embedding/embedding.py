@@ -16,20 +16,29 @@ def main(argv=None):
     subparser = parser.add_subparsers(dest="task")
 
     compute_parser = subparser.add_parser("compute", help="Compute embedding from scratch via cooccurrence matrix.")
-    compute_parser.add_argument("-d", "--dim", type=int, nargs=1, default=50)
+    compute_parser.add_argument("-d", "--dim", type=int, nargs=1, default=50,
+                                help="dimension of embedding")
+    compute_parser.add_argument("-v", "--vocab", type=str, nargs=1, default="vocab.txt",
+                                help="filename of vocabulary file")
+    compute_parser.add_argument("-c", "--cooccurrence", type=str, nargs=1, default="cooccurrence.shuf.bin",
+                                help="filename of cooccurrence binary")
+    compute_parser.add_argument("-o", "--vectors", type=str, nargs=1, default="vectors.txt",
+                                help="filename for embedding vectors output")
 
     evaluate_parser = subparser.add_parser("evaluate", help="Evaluate performance of an embedding on standard tasks.")
-    parser.add_argument('--vocab', default='vocab.txt', type=str)
-    parser.add_argument('--vectors', default='vectors.txt', type=str)
+    evaluate_parser.add_argument('--vocab', type=str, nargs=1, default='vocab.txt',
+                                 help="filename of vocabulary file")
+    evaluate_parser.add_argument('--vectors', type=str, nargs=1, default='vectors.txt',
+                                 help="filename of embedding vectors file")
 
     args = parser.parse_args(argv)
 
     if args.task == "compute":
         embedding = Embedding(args.dim)
-        embedding.load_from_file()
+        embedding.load_from_file(args.vocab, args.cooccurrence)
         # embedding.load(*util.synthetic(2, 4))
         embedding.solve()
-        embedding.save_to_file()
+        embedding.save_to_file(args.vectors)
     elif args.task == "evaluate":
         with open(args.vocab, 'r') as f:
             words = [x.rstrip().split(' ')[0] for x in f.readlines()]
@@ -95,7 +104,7 @@ class Embedding(object):
         v = v.clamp(min=0)
         self.cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
 
-    def load_from_file(self):
+    def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin"):
 
         begin = time.time()
 
@@ -104,20 +113,20 @@ class Embedding(object):
             assert(len(l) == 2)
             return l[0], int(l[1])
 
-        with open("vocab.txt") as f:
+        with open(vocab_file) as f:
             lines = [parse_line(l) for l in f]
             words = [l[0] for l in lines]
             vocab = torch.DoubleTensor([l[1] for l in lines])
         n = vocab.size()[0]
         print("n:", n)
 
-        filesize = os.stat("cooccurrence.shuf.bin").st_size
+        filesize = os.stat(cooccurrence_file).st_size
         assert(filesize % 16 == 0)
         nnz = filesize / 16
         print("nnz:", nnz)
         v = np.empty(nnz, np.float64)
         ind = np.empty((2, nnz), np.int64) # TODO: binary format is int32, but torch uses Long
-        with open("cooccurrence.shuf.bin", "rb") as f:
+        with open(cooccurrence_file, "rb") as f:
             content = f.read()
             i = 0
             block = 10000
@@ -178,9 +187,9 @@ class Embedding(object):
         norm = torch.norm(self.embedding, 2, 1, True)
         self.embedding = self.embedding.div(norm.expand_as(self.embedding))
 
-    def save_to_file(self):
+    def save_to_file(self, filename):
         begin = time.time()
-        with open("vectors.txt", "w") as f:
+        with open(filename, "w") as f:
             for i in range(self.n):
                 f.write(self.words[i] + " " + " ".join([str(self.embedding[i, j]) for j in range(self.dim)]) + "\n")
         end = time.time()
