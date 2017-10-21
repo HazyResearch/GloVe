@@ -37,11 +37,13 @@ def main(argv=None):
                                 help="Solver used to find top eigenvectors")
     compute_parser.add_argument("-i", "--iterations", type=int, default=50,
                                 help="Iterations used by solver")
+    compute_parser.add_argument("-e", "--eta", type=float, default=1e-3,
+                                help="Learning rate used by solver")
     compute_parser.add_argument("-m", "--momentum", type=float, default=0.,
                                 help="Momentum used by solver")
     compute_parser.add_argument("-f", "--normfreq", type=int, default=1,
                                 help="Normalization frequency used by solver")
-    compute_parser.add_argument("-b", "--batch", type=int, default=100,
+    compute_parser.add_argument("-b", "--batch", type=int, default=100000,
                                 help="Batch size used by solver")
     compute_parser.add_argument("-j", "--innerloop", type=int, default=10,
                                 help="Inner loop iterations used by solver")
@@ -68,9 +70,9 @@ def main(argv=None):
     if args.task == "compute":
         embedding = Embedding(args.dim)
         embedding.load_from_file(args.vocab, args.cooccurrence)
-        embedding.preprocessing(args.preprocessing)
         # embedding.load(*util.synthetic(2, 4))
-        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
+        embedding.preprocessing(args.preprocessing)
+        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
         embedding.save_to_file(args.vectors)
     elif args.task == "evaluate":
         with open(args.vocab, 'r') as f:
@@ -114,6 +116,7 @@ class Embedding(object):
         self.vocab = vocab
         self.words = words
 
+        # TODO: option of Float
         if embedding is None:
             self.embedding = torch.randn([self.n, self.dim]).type(torch.DoubleTensor)
             self.embedding, _ = util.normalize(self.embedding)
@@ -187,7 +190,7 @@ class Embedding(object):
         end = time.time()
         print("Preprocessing took", end - begin)
 
-    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, momentum=0., normfreq=1, batch=100, innerloop=10):
+    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, batch=100000, innerloop=10):
         if momentum == 0.:
             prev = None
         else:
@@ -206,13 +209,14 @@ class Embedding(object):
             self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq)
         elif mode == "alecton":
             # TODO: proper args
-            self.embedding, _ = solver.alecton(self.mat, self.embedding, x0=prev, iterations=iterations)
+            self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "vr":
             # TODO: proper args
-            self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations)
+            self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
+
         elif mode == "sgd":
             # TODO: proper args
-            self.embedding, _ = solver.sgd(self.mat, self.embedding, iterations=iterations)
+            self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
 
         self.scale(scale)
         if normalize:

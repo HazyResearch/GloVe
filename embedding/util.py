@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import torch
+import numpy as np
 import time
 
 def synthetic(n, nnz):
@@ -17,10 +18,11 @@ def synthetic(n, nnz):
 
     cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n])).coalesce()
     vocab = None
+    words = None
     end = time.time()
     print("Generating synthetic data:", end - begin)
 
-    return cooccurrence, vocab
+    return cooccurrence, vocab, words
 
 def normalize(x, x0=None):
     # TODO: is it necessary to reorder columns by magnitude
