@@ -5,9 +5,59 @@ import numpy as np
 import time
 import os
 import struct
+import argparse
 
 import solver
 import util
+import evaluate
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Tools for embeddings.")
+    subparser = parser.add_subparsers(dest="task")
+
+    compute_parser = subparser.add_parser("compute", help="Compute embedding from scratch via cooccurrence matrix.")
+    compute_parser.add_argument("-d", "--dim", type=int, nargs=1, default=50)
+
+    evaluate_parser = subparser.add_parser("evaluate", help="Evaluate performance of an embedding on standard tasks.")
+    parser.add_argument('--vocab', default='vocab.txt', type=str)
+    parser.add_argument('--vectors', default='vectors.txt', type=str)
+
+    args = parser.parse_args(argv)
+
+    if args.task == "compute":
+        embedding = Embedding(args.dim)
+        embedding.load_from_file()
+        # embedding.load(*util.synthetic(2, 4))
+        embedding.solve()
+        embedding.save_to_file()
+    elif args.task == "evaluate":
+        with open(args.vocab, 'r') as f:
+            words = [x.rstrip().split(' ')[0] for x in f.readlines()]
+        with open(args.vectors, 'r') as f:
+            vectors = {}
+            for line in f:
+                vals = line.rstrip().split(' ')
+                vectors[vals[0]] = [float(x) for x in vals[1:]]
+
+        vocab_size = len(words)
+        vocab = {w: idx for idx, w in enumerate(words)}
+        ivocab = {idx: w for idx, w in enumerate(words)}
+
+        vector_dim = len(vectors[ivocab[0]])
+        W = np.zeros((vocab_size, vector_dim))
+        for word, v in vectors.items():
+            if word == '<unk>':
+                continue
+            W[vocab[word], :] = v
+
+        # normalize each word vector to unit variance
+        W_norm = np.zeros(W.shape)
+        d = (np.sum(W ** 2, 1) ** (0.5))
+        W_norm = (W.T / d).T
+        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab)
+        # evaluate.evaluate_human_sim()
+        evaluate.evaluate_vectors_sim(W, vocab, ivocab)
+
 
 class Embedding(object):
     def __init__(self, dim=50):
@@ -136,10 +186,5 @@ class Embedding(object):
         end = time.time()
         print("Saving embeddings:", end - begin)
 
-
-def main(argv=None):
-    embedding = Embedding()
-    embedding.load_from_file()
-    # embedding.load(*util.synthetic(2, 4))
-    embedding.solve()
-    embedding.save_to_file()
+if __name__ == "__main__":
+    main()
