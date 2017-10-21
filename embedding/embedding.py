@@ -18,14 +18,14 @@ def main(argv=None):
     # Compute parser
     compute_parser = subparser.add_parser("compute", help="Compute embedding from scratch via cooccurrence matrix.")
 
-    compute_parser.add_argument("-d", "--dim", type=int, nargs=1, default=50,
+    compute_parser.add_argument("-d", "--dim", type=int, default=50,
                                 help="dimension of embedding")
 
-    compute_parser.add_argument("-v", "--vocab", type=str, nargs=1, default="vocab.txt",
+    compute_parser.add_argument("-v", "--vocab", type=str, default="vocab.txt",
                                 help="filename of vocabulary file")
-    compute_parser.add_argument("-c", "--cooccurrence", type=str, nargs=1, default="cooccurrence.shuf.bin",
+    compute_parser.add_argument("-c", "--cooccurrence", type=str, default="cooccurrence.shuf.bin",
                                 help="filename of cooccurrence binary")
-    compute_parser.add_argument("-o", "--vectors", type=str, nargs=1, default="vectors.txt",
+    compute_parser.add_argument("-o", "--vectors", type=str, default="vectors.txt",
                                 help="filename for embedding vectors output")
 
     compute_parser.add_argument("-p", "--preprocessing", type=str, default="ppmi",
@@ -48,24 +48,23 @@ def main(argv=None):
     compute_parser.add_argument("-j", "--innerloop", type=int, default=10,
                                 help="Inner loop iterations used by solver")
 
-    compute_parser.add_argument("--scale", type=float, nargs=1, default=0.5,
+    compute_parser.add_argument("--scale", type=float, default=0.5,
                                 help="Scale on eigenvector is $\lambda_i ^ s$")
-    compute_parser.add_argument("-n", "--normalize", type=bool, nargs=1, default=True,
+    compute_parser.add_argument("-n", "--normalize", type=bool, default=True,
                                 help="Toggle to normalize embeddings")
 
-    compute_parser.add_argument("-g", "--gpu", type=bool, nargs=1, default=True,
+    compute_parser.add_argument("-g", "--gpu", type=bool, default=True,
                                 help="Toggle to use GPU")
 
     # Evaluate parser
     evaluate_parser = subparser.add_parser("evaluate", help="Evaluate performance of an embedding on standard tasks.")
 
-    evaluate_parser.add_argument('--vocab', type=str, nargs=1, default='vocab.txt',
+    evaluate_parser.add_argument('--vocab', type=str, default='vocab.txt',
                                  help="filename of vocabulary file")
-    evaluate_parser.add_argument('--vectors', type=str, nargs=1, default='vectors.txt',
+    evaluate_parser.add_argument('--vectors', type=str, default='vectors.txt',
                                  help="filename of embedding vectors file")
 
     args = parser.parse_args(argv)
-    # print(args)
 
     if args.task == "compute":
         embedding = Embedding(args.dim)
