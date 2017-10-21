@@ -203,12 +203,15 @@ class Embedding(object):
             print("GPU Loading:", end - begin)
 
         if mode == "pi":
-            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations)
+            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq)
         elif mode == "alecton":
+            # TODO: proper args
             self.embedding, _ = solver.alecton(self.mat, self.embedding, x0=prev, iterations=iterations)
         elif mode == "vr":
+            # TODO: proper args
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations)
         elif mode == "sgd":
+            # TODO: proper args
             self.embedding, _ = solver.sgd(self.mat, self.embedding, iterations=iterations)
 
         self.scale(scale)
