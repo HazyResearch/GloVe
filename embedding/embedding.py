@@ -15,9 +15,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Tools for embeddings.")
     subparser = parser.add_subparsers(dest="task")
 
+    # Compute parser
     compute_parser = subparser.add_parser("compute", help="Compute embedding from scratch via cooccurrence matrix.")
+
     compute_parser.add_argument("-d", "--dim", type=int, nargs=1, default=50,
                                 help="dimension of embedding")
+
     compute_parser.add_argument("-v", "--vocab", type=str, nargs=1, default="vocab.txt",
                                 help="filename of vocabulary file")
     compute_parser.add_argument("-c", "--cooccurrence", type=str, nargs=1, default="cooccurrence.shuf.bin",
@@ -25,19 +28,49 @@ def main(argv=None):
     compute_parser.add_argument("-o", "--vectors", type=str, nargs=1, default="vectors.txt",
                                 help="filename for embedding vectors output")
 
+    compute_parser.add_argument("-p", "--preprocessing", type=str, default="ppmi",
+                                choices=["none", "log1p", "ppmi"],
+                                help="Preprocessing of cooccurrence matrix before eigenvector computation")
+
+    compute_parser.add_argument("-s", "--solver", type=str, default="pi",
+                                choices=["pi", "alecton", "vr", "sgd"],
+                                help="Solver used to find top eigenvectors")
+    compute_parser.add_argument("-i", "--iterations", type=int, default=50,
+                                help="Iterations used by solver")
+    compute_parser.add_argument("-m", "--momentum", type=float, default=0.,
+                                help="Momentum used by solver")
+    compute_parser.add_argument("-f", "--normfreq", type=int, default=1,
+                                help="Normalization frequency used by solver")
+    compute_parser.add_argument("-b", "--batch", type=int, default=100,
+                                help="Batch size used by solver")
+    compute_parser.add_argument("-j", "--innerloop", type=int, default=10,
+                                help="Inner loop iterations used by solver")
+
+    compute_parser.add_argument("--scale", type=float, nargs=1, default=0.5,
+                                help="Scale on eigenvector is $\lambda_i ^ s$")
+    compute_parser.add_argument("-n", "--normalize", type=bool, nargs=1, default=True,
+                                help="Toggle to normalize embeddings")
+
+    compute_parser.add_argument("-g", "--gpu", type=bool, nargs=1, default=True,
+                                help="Toggle to use GPU")
+
+    # Evaluate parser
     evaluate_parser = subparser.add_parser("evaluate", help="Evaluate performance of an embedding on standard tasks.")
+
     evaluate_parser.add_argument('--vocab', type=str, nargs=1, default='vocab.txt',
                                  help="filename of vocabulary file")
     evaluate_parser.add_argument('--vectors', type=str, nargs=1, default='vectors.txt',
                                  help="filename of embedding vectors file")
 
     args = parser.parse_args(argv)
+    # print(args)
 
     if args.task == "compute":
         embedding = Embedding(args.dim)
         embedding.load_from_file(args.vocab, args.cooccurrence)
+        embedding.preprocessing(args.preprocessing)
         # embedding.load(*util.synthetic(2, 4))
-        embedding.solve()
+        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
         embedding.save_to_file(args.vectors)
     elif args.task == "evaluate":
         with open(args.vocab, 'r') as f:
@@ -87,23 +120,6 @@ class Embedding(object):
         else:
             self.embedding = embedding
 
-        ## log occurrence
-        # self.cooccurrence._values().log1p_()
-
-        # PPMI
-        wc = torch.mm(self.cooccurrence, torch.ones([self.n, 1]).type(torch.DoubleTensor)) # individual word counts
-        D = torch.sum(wc) # total dictionary size
-        # TODO: pytorch doesn't seem to only allow indexing by vector
-        wc0 = wc[self.cooccurrence._indices()[0, :]].squeeze()
-        wc1 = wc[self.cooccurrence._indices()[1, :]].squeeze()
-
-        ind = self.cooccurrence._indices()
-        v = self.cooccurrence._values()
-        nnz = v.shape[0]
-        v = torch.log(v) + torch.log(torch.DoubleTensor(nnz).fill_(D)) - torch.log(wc0) - torch.log(wc1)
-        v = v.clamp(min=0)
-        self.cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
-
     def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin"):
 
         begin = time.time()
@@ -147,22 +163,57 @@ class Embedding(object):
         end = time.time()
         print("Loading data took", end - begin)
 
-    def solve(self, gpu=True):
-        prev = None
-        # prev = torch.zeros([self.n, self.dim]).type(torch.DoubleTensor)
+    def preprocessing(self, mode="ppmi"):
+        begin = time.time()
+        if mode == "none":
+            self.mat = self.cooccurrence
+        elif mode == "log1p":
+            self.mat = self.cooccurrence.clone()
+            self.mat._values().log1p_()
+        elif mode == "ppmi":
+            self.mat = self.cooccurrence.clone()
+            wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(torch.DoubleTensor)) # individual word counts
+            D = torch.sum(wc) # total dictionary size
+            # TODO: pytorch doesn't seem to only allow indexing by vector
+            wc0 = wc[self.mat._indices()[0, :]].squeeze()
+            wc1 = wc[self.mat._indices()[1, :]].squeeze()
+
+            ind = self.mat._indices()
+            v = self.mat._values()
+            nnz = v.shape[0]
+            v = torch.log(v) + torch.log(torch.DoubleTensor(nnz).fill_(D)) - torch.log(wc0) - torch.log(wc1)
+            v = v.clamp(min=0)
+            self.mat = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
+        end = time.time()
+        print("Preprocessing took", end - begin)
+
+    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, momentum=0., normfreq=1, batch=100, innerloop=10):
+        if momentum == 0.:
+            prev = None
+        else:
+            prev = torch.zeros([self.n, self.dim]).type(torch.DoubleTensor)
 
         if gpu:
             begin = time.time()
-            self.cooccurrence = self.cooccurrence.cuda()
+            self.mat = self.mat.cuda()
             self.embedding = self.embedding.cuda()
             if prev is not None:
-                prev.cuda()
+                prev = prev.cuda()
             end = time.time()
             print("GPU Loading:", end - begin)
 
-        self.embedding, _ = solver.power_iteration(self.cooccurrence, self.embedding, x0=prev)
-        self.scale(0.5)
-        self.normalize_embeddings()
+        if mode == "pi":
+            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations)
+        elif mode == "alecton":
+            self.embedding, _ = solver.alecton(self.mat, self.embedding, x0=prev, iterations=iterations)
+        elif mode == "vr":
+            self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations)
+        elif mode == "sgd":
+            self.embedding, _ = solver.sgd(self.mat, self.embedding, iterations=iterations)
+
+        self.scale(scale)
+        if normalize:
+            self.normalize_embeddings()
 
         if gpu:
             begin = time.time()
@@ -171,11 +222,11 @@ class Embedding(object):
             print("CPU Loading:", end - begin)
 
     def scale(self, p=1.):
-        """Assumes that matrix is normalized."""
+        # TODO: Assumes that matrix is normalized.
         begin = time.time()
 
         # TODO: faster estimation of eigenvalues?
-        temp = torch.mm(self.cooccurrence, self.embedding)
+        temp = torch.mm(self.mat, self.embedding)
         norm = torch.norm(temp, 2, 0, True)
 
         norm = norm.pow(p)

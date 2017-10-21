@@ -6,8 +6,6 @@ import scipy.stats
 def evaluate_vectors_analogy(W, vocab, ivocab):
     """Evaluate the trained word vectors on a variety of tasks"""
 
-    print(os.path.join(os.path.dirname(__file__), "data", "eval"))
-
     print("Analogy Task")
 
     filenames = [

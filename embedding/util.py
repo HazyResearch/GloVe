@@ -30,8 +30,8 @@ def normalize(x, x0=None):
     print(norm)
     # x = x.div(norm.expand_as(x))
     x, r = torch.qr(x)
-    norm = torch.norm(x, 2, 0, True)
-    print(norm)
+    # norm = torch.norm(x, 2, 0, True)
+    # print(norm)
     if x0 is not None:
         x0 = torch.mm(x0, torch.inverse(r))
     end = time.time()

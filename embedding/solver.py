@@ -8,10 +8,10 @@ import struct
 
 import util
 
-def power_iteration(mat, x, x0=None, iterations=50, beta=0.0, norm_freq=1):
+def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1):
     for i in range(iterations):
         begin = time.time()
-        if beta == 0:
+        if beta == 0.:
             x = torch.mm(mat, x)
         else:
             x, x0 = torch.mm(mat, x) - beta * x0, x
