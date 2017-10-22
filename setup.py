@@ -12,9 +12,6 @@ setup(
         "scipy",
         "argcomplete"
     ],
-    data_files=[
-        ("data", ["data"])
-    ],
     entry_points={
         "console_scripts": [
             "embedding = embedding.embedding:main",
