@@ -28,8 +28,9 @@ def normalize(x, x0=None):
     # TODO: is it necessary to reorder columns by magnitude
     # TODO: more numerically stable implementation?
     begin = time.time()
-    norm = torch.norm(x, 2, 0, True)
-    print(norm)
+    norm = torch.norm(x, 2, 0, True).squeeze()
+    dim, = norm.shape
+    print("\n" + " ".join(["{:10.2f}".format(n) for n in norm]))
     # x = x.div(norm.expand_as(x))
     x, r = torch.qr(x)
     # norm = torch.norm(x, 2, 0, True)
