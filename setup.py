@@ -8,7 +8,8 @@ setup(
     description="compute word embeddings",
     packages=find_packages(),
     install_requires=[
-        "torch"
+        "torch",
+        "scipy"
     ],
     entry_points={
         "console_scripts": [
