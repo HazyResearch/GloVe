@@ -9,8 +9,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "torch",
-        "scipy",
-        "argcomplete"
+        "scipy"
     ],
     entry_points={
         "console_scripts": [
