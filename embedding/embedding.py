@@ -6,6 +6,7 @@ import time
 import os
 import struct
 import argparse
+import argcomplete
 
 import embedding.solver as solver
 import embedding.util as util
@@ -25,6 +26,8 @@ def main(argv=None):
                                 help="filename of vocabulary file")
     compute_parser.add_argument("-c", "--cooccurrence", type=str, default="cooccurrence.shuf.bin",
                                 help="filename of cooccurrence binary")
+    compute_parser.add_argument("--initial", type=str, default=None,
+                                help="filename of initial embedding vectors")
     compute_parser.add_argument("-o", "--vectors", type=str, default="vectors.txt",
                                 help="filename for embedding vectors output")
 
@@ -64,6 +67,7 @@ def main(argv=None):
     evaluate_parser.add_argument('--vectors', type=str, default='vectors.txt',
                                  help="filename of embedding vectors file")
 
+    argcomplete.autocomplete(parser)
     args = parser.parse_args(argv)
 
     if hasattr(args, "gpu") and args.gpu and not torch.cuda.is_available():
@@ -73,7 +77,7 @@ def main(argv=None):
 
     if args.task == "compute":
         embedding = Embedding(args.dim)
-        embedding.load_from_file(args.vocab, args.cooccurrence)
+        embedding.load_from_file(args.vocab, args.cooccurrence, args.initial)
         # embedding.load(*util.synthetic(2, 4))
         embedding.preprocessing(args.preprocessing)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
@@ -119,15 +123,10 @@ class Embedding(object):
         self.cooccurrence = cooccurrence
         self.vocab = vocab
         self.words = words
+        self.embedding = embedding
 
-        # TODO: option of Float
-        if embedding is None:
-            self.embedding = torch.randn([self.n, self.dim]).type(torch.DoubleTensor)
-            self.embedding, _ = util.normalize(self.embedding)
-        else:
-            self.embedding = embedding
-
-    def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin"):
+    def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", initial_vectors=None):
+        # TODO: option of FloatTensor
 
         begin = time.time()
 
@@ -165,7 +164,16 @@ class Embedding(object):
         ind = torch.LongTensor(ind)
         cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n])).coalesce()
 
-        self.load(cooccurrence, vocab, words)
+        if initial_vectors is None:
+            vectors = torch.randn([n, self.dim]).type(torch.DoubleTensor)
+        else:
+            # TODO: verify that the vectors have the right set of words
+            # verify that the vectors have a matching dim
+            with open(initial_vectors, "r") as f:
+                vectors = torch.DoubleTensor([[float(v) for v in line.split()[1:]] for line in f])
+        vectors, _ = util.normalize(vectors)
+
+        self.load(cooccurrence, vocab, words, vectors)
 
         end = time.time()
         print("Loading data took", end - begin)
