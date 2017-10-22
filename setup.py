@@ -9,7 +9,11 @@ setup(
     packages=find_packages(),
     install_requires=[
         "torch",
-        "scipy"
+        "scipy",
+        "argcomplete"
+    ],
+    data_files=[
+        ("data", ["data"])
     ],
     entry_points={
         "console_scripts": [
