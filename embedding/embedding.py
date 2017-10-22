@@ -66,6 +66,11 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
+    if args.gpu and not torch.cuda.is_available():
+        print("WARNING: GPU use requested, but GPU not available.")
+        print("         Toggling off GPU use.")
+        args.gpu = False
+
     if args.task == "compute":
         embedding = Embedding(args.dim)
         embedding.load_from_file(args.vocab, args.cooccurrence)
