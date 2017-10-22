@@ -15,7 +15,16 @@ if [ ! -e text8 ]; then
   rm text8.zip
 fi
 
-CORPUS=text8
+# optional integer as argument
+# argument specifies how many characters
+if [ $# -ne 0 ]; then
+    echo $1
+    cut -c-$1 text8 > text
+else
+    cp text8 text
+fi
+
+CORPUS=text
 VOCAB_FILE=vocab.txt
 COOCCURRENCE_FILE=cooccurrence.bin
 COOCCURRENCE_SHUF_FILE=cooccurrence.shuf.bin
