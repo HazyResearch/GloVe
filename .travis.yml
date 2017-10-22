@@ -32,3 +32,5 @@ script:
   - find .
   - embedding compute
   - embedding evaluate
+  - python -m embedding compute
+  - python -m embedding evaluate
