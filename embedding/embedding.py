@@ -66,7 +66,7 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
-    if args.gpu and not torch.cuda.is_available():
+    if hasattr(args, "gpu") and args.gpu and not torch.cuda.is_available():
         print("WARNING: GPU use requested, but GPU not available.")
         print("         Toggling off GPU use.")
         args.gpu = False
