@@ -145,7 +145,7 @@ class Embedding(object):
 
         filesize = os.stat(cooccurrence_file).st_size
         assert(filesize % 16 == 0)
-        nnz = filesize / 16
+        nnz = filesize // 16
         print("nnz:", nnz)
         v = np.empty(nnz, np.float64)
         ind = np.empty((2, nnz), np.int64) # TODO: binary format is int32, but torch uses Long
