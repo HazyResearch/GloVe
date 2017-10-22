@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
 import torch
 import numpy as np
@@ -7,9 +7,9 @@ import os
 import struct
 import argparse
 
-import solver
-import util
-import evaluate
+import embedding.solver as solver
+import embedding.util as util
+import embedding.evaluate as evaluate
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Tools for embeddings.")

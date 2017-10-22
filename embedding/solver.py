@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
 import torch
 import numpy as np
@@ -6,7 +6,7 @@ import time
 import os
 import struct
 
-import util
+import embedding.util as util
 
 # TODO: automatically match defaults from cmd line?
 
