@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/HazyResearch/GloVe.svg?branch=master)](https://travis-ci.org/HazyResearch/GloVe)
 ## GloVe: Global Vectors for Word Representation
 
 
