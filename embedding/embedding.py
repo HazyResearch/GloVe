@@ -6,6 +6,7 @@ import time
 import os
 import struct
 import argparse
+import sys
 
 import embedding.solver as solver
 import embedding.util as util
@@ -65,6 +66,7 @@ def main(argv=None):
                                  help="filename of embedding vectors file")
 
     args = parser.parse_args(argv)
+    print(args)
 
     if hasattr(args, "gpu") and args.gpu and not torch.cuda.is_available():
         print("WARNING: GPU use requested, but GPU not available.")
@@ -258,4 +260,4 @@ class Embedding(object):
         print("Saving embeddings:", end - begin)
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
