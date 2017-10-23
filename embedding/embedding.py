@@ -7,6 +7,7 @@ import os
 import struct
 import argparse
 import sys
+import subprocess
 
 import embedding.solver as solver
 import embedding.util as util
@@ -24,6 +25,12 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(description="Tools for embeddings.")
     subparser = parser.add_subparsers(dest="task")
+
+    # Preprocessing parser
+    cooccurrence_parser = subparser.add_parser("cooccurrence", help="Preprocessing (compute vocab and cooccurrence from text.")
+
+    cooccurrence_parser.add_argument("text", type=str, nargs="?", default="text",
+                                   help="filename of text file")
 
     # Compute parser
     compute_parser = subparser.add_parser("compute", help="Compute embedding from scratch via cooccurrence matrix.")
@@ -83,7 +90,10 @@ def main(argv=None):
         print("         Toggling off GPU use.")
         args.gpu = False
 
-    if args.task == "compute":
+    if args.task == "cooccurrence":
+        # subprocess.call(["./cooccurrence.sh", args.text], cwd=os.path.join(os.path.dirname(__file__), "..",))
+        subprocess.call([os.path.join(os.path.dirname(__file__), "..", "cooccurrence.sh"), args.text])
+    elif args.task == "compute":
         embedding = Embedding(args.dim)
         embedding.load_from_file(args.vocab, args.cooccurrence, args.initial)
         # embedding.load(*util.synthetic(2, 4))
@@ -228,14 +238,10 @@ class Embedding(object):
         if mode == "pi":
             self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq)
         elif mode == "alecton":
-            # TODO: proper args
             self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "vr":
-            # TODO: proper args
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
-
         elif mode == "sgd":
-            # TODO: proper args
             self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
 
         self.scale(scale)
