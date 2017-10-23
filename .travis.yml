@@ -30,6 +30,7 @@ install:
 script:
   - pwd
   - find .
+  - cd embedding/data/cooccurrence/wikipedia_sample
   - embedding compute
   - embedding evaluate
   - python -m embedding compute
