@@ -31,12 +31,19 @@ def normalize(x, x0=None):
     norm = torch.norm(x, 2, 0, True).squeeze()
     dim, = norm.shape
     print("\n" + " ".join(["{:10.2f}".format(n) for n in norm]))
-    # x = x.div(norm.expand_as(x))
-    x, r = torch.qr(x)
-    # norm = torch.norm(x, 2, 0, True)
-    # print(norm)
-    if x0 is not None:
-        x0 = torch.mm(x0, torch.inverse(r))
+    temp, r = torch.qr(x)
+    if np.isnan(torch.sum(temp)):
+        # qr seems to occassionally be unstable and result in nan
+        print("WARNING: QR decomposition resulted in NaNs")
+        print("         Normalizing, but not orthogonalizing")
+        # TODO: should a little bit of jitter be added to make qr succeed?
+        x = x.div(norm.expand_as(x))
+        if x0 is not None:
+            x0 = x0.div(norm.expand_as(x0))
+    else:
+        x = temp
+        if x0 is not None:
+            x0 = torch.mm(x0, torch.inverse(r))
     end = time.time()
     print("Normalizing took", end - begin)
 
