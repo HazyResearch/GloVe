@@ -125,9 +125,9 @@ def main(argv=None):
         W_norm = np.zeros(W.shape)
         d = (np.sum(W ** 2, 1) ** (0.5))
         W_norm = (W.T / d).T
-        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab)
         # evaluate.evaluate_human_sim()
         evaluate.evaluate_vectors_sim(W, vocab, ivocab)
+        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab)
 
 
 class Embedding(object):
