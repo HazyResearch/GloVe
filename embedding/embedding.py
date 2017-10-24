@@ -174,10 +174,18 @@ class Embedding(object):
         ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor) - 1
         val = torch.DoubleTensor(data["val"])
         cooccurrence = torch.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
-        cooccurrence = cooccurrence.coalesce()
+        # TODO: coalescing is very slow, and the cooccurrence matrix is
+        # almost always coalesced, but this might not be safe
+        # cooccurrence = cooccurrence.coalesce()
+        end = time.time()
+        print("Loading data took", end - begin)
+        sys.stdout.flush()
 
         if initial_vectors is None:
+            begin = time.time()
             vectors = torch.randn([n, self.dim]).type(torch.DoubleTensor)
+            end = time.time()
+            print("Random initialization took ", end - begin)
         else:
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
@@ -186,10 +194,6 @@ class Embedding(object):
         vectors, _ = util.normalize(vectors)
 
         self.load(cooccurrence, vocab, words, vectors)
-
-        end = time.time()
-        print("Loading data took", end - begin)
-        sys.stdout.flush()
 
     def preprocessing(self, mode="ppmi"):
         begin = time.time()
