@@ -5,6 +5,7 @@ import numpy as np
 import time
 import os
 import struct
+import sys
 
 import embedding.util as util
 
@@ -19,6 +20,7 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1):
             x, x0 = torch.mm(mat, x) - beta * x0, x
         end = time.time()
         print("Iteration", i + 1, "took", end - begin)
+        sys.stdout.flush()
 
         if (i + 1) % norm_freq == 0:
             x, x0 = util.normalize(x, x0)

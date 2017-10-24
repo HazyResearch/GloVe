@@ -88,6 +88,7 @@ def main(argv=None):
     if hasattr(args, "gpu") and args.gpu and not torch.cuda.is_available():
         print("WARNING: GPU use requested, but GPU not available.")
         print("         Toggling off GPU use.")
+        sys.stdout.flush()
         args.gpu = False
 
     if args.task == "cooccurrence":
@@ -159,11 +160,13 @@ class Embedding(object):
             vocab = torch.DoubleTensor([l[1] for l in lines])
         n = vocab.size()[0]
         print("n:", n)
+        sys.stdout.flush()
 
         filesize = os.stat(cooccurrence_file).st_size
         assert(filesize % 16 == 0)
         nnz = filesize // 16
         print("nnz:", nnz)
+        sys.stdout.flush()
         v = np.empty(nnz, np.float64)
         ind = np.empty((2, nnz), np.int64) # TODO: binary format is int32, but torch uses Long
         with open(cooccurrence_file, "rb") as f:
@@ -195,6 +198,7 @@ class Embedding(object):
 
         end = time.time()
         print("Loading data took", end - begin)
+        sys.stdout.flush()
 
     def preprocessing(self, mode="ppmi"):
         begin = time.time()
@@ -219,6 +223,7 @@ class Embedding(object):
             self.mat = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
         end = time.time()
         print("Preprocessing took", end - begin)
+        sys.stdout.flush()
 
     def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, batch=100000, innerloop=10):
         if momentum == 0.:
@@ -234,6 +239,7 @@ class Embedding(object):
                 prev = prev.cuda()
             end = time.time()
             print("GPU Loading:", end - begin)
+            sys.stdout.flush()
 
         if mode == "pi":
             self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq)
@@ -253,6 +259,7 @@ class Embedding(object):
             self.embedding = self.embedding.cpu()
             end = time.time()
             print("CPU Loading:", end - begin)
+            sys.stdout.flush()
 
     def scale(self, p=1.):
         # TODO: Assumes that matrix is normalized.
@@ -266,6 +273,7 @@ class Embedding(object):
         self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
         end = time.time()
         print("Final scaling:", end - begin)
+        sys.stdout.flush()
 
     def normalize_embeddings(self):
         norm = torch.norm(self.embedding, 2, 1, True)
@@ -278,6 +286,7 @@ class Embedding(object):
                 f.write(self.words[i] + " " + " ".join([str(self.embedding[i, j]) for j in range(self.dim)]) + "\n")
         end = time.time()
         print("Saving embeddings:", end - begin)
+        sys.stdout.flush()
 
 if __name__ == "__main__":
     main(sys.argv)

@@ -3,6 +3,7 @@ from __future__ import print_function, absolute_import
 import torch
 import numpy as np
 import time
+import sys
 
 def synthetic(n, nnz):
     """This function generates a synthetic matrix."""
@@ -31,11 +32,13 @@ def normalize(x, x0=None):
     norm = torch.norm(x, 2, 0, True).squeeze()
     dim, = norm.shape
     print("\n" + " ".join(["{:10.2f}".format(n) for n in norm]))
+    sys.stdout.flush()
     temp, r = torch.qr(x)
     if np.isnan(torch.sum(temp)):
         # qr seems to occassionally be unstable and result in nan
         print("WARNING: QR decomposition resulted in NaNs")
         print("         Normalizing, but not orthogonalizing")
+        sys.stdout.flush()
         # TODO: should a little bit of jitter be added to make qr succeed?
         x = x.div(norm.expand_as(x))
         if x0 is not None:
@@ -46,5 +49,6 @@ def normalize(x, x0=None):
             x0 = torch.mm(x0, torch.inverse(r))
     end = time.time()
     print("Normalizing took", end - begin)
+    sys.stdout.flush()
 
     return x, x0
