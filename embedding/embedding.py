@@ -15,18 +15,10 @@ import embedding.evaluate as evaluate
 
 def main(argv=None):
 
-    def str2bool(v):
-        if v.lower() in ('yes', 'true', 't', 'y', '1'):
-            return True
-        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-            return False
-        else:
-            raise argparse.ArgumentTypeError('Boolean value expected.')
-
     parser = argparse.ArgumentParser(description="Tools for embeddings.")
     subparser = parser.add_subparsers(dest="task")
 
-    # Preprocessing parser
+    # Cooccurrence parser
     cooccurrence_parser = subparser.add_parser("cooccurrence", help="Preprocessing (compute vocab and cooccurrence from text.")
 
     cooccurrence_parser.add_argument("text", type=str, nargs="?", default="text",
@@ -69,10 +61,10 @@ def main(argv=None):
 
     compute_parser.add_argument("--scale", type=float, default=0.5,
                                 help="Scale on eigenvector is $\lambda_i ^ s$")
-    compute_parser.add_argument("-n", "--normalize", type=str2bool, default=True,
+    compute_parser.add_argument("-n", "--normalize", type=util.str2bool, default=True,
                                 help="Toggle to normalize embeddings")
 
-    compute_parser.add_argument("-g", "--gpu", type=str2bool, default=True,
+    compute_parser.add_argument("-g", "--gpu", type=util.str2bool, default=True,
                                 help="Toggle to use GPU")
 
     # Evaluate parser
