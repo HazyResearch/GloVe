@@ -171,7 +171,7 @@ class Embedding(object):
         dt = np.dtype([("ind", [("row", "<i4"), ("col", "<i4")]), ("val", "<d")])
         dt = np.dtype([("row", "<i4"), ("col", "<i4"), ("val", "<d")])
         data = np.fromfile(cooccurrence_file, dtype=dt)
-        ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor)
+        ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor) - 1
         val = torch.DoubleTensor(data["val"])
         cooccurrence = torch.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
         cooccurrence = cooccurrence.coalesce()
