@@ -167,23 +167,14 @@ class Embedding(object):
         nnz = filesize // 16
         print("nnz:", nnz)
         sys.stdout.flush()
-        v = np.empty(nnz, np.float64)
-        ind = np.empty((2, nnz), np.int64) # TODO: binary format is int32, but torch uses Long
-        with open(cooccurrence_file, "rb") as f:
-            content = f.read()
-            i = 0
-            block = 10000
-            while i < nnz:
-                block = min(block, nnz - i)
-                line = struct.unpack("iid" * block, content[(16 * i):(16 * (i + block))])
-                ind[0, i:(i + block)] = line[0::3]
-                ind[1, i:(i + block)] = line[1::3]
-                v[i:(i + block)] = line[2::3]
-                i += block
-            ind = ind - 1
-        v = torch.DoubleTensor(v)
-        ind = torch.LongTensor(ind)
-        cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n])).coalesce()
+
+        dt = np.dtype([("ind", [("row", "<i4"), ("col", "<i4")]), ("val", "<d")])
+        dt = np.dtype([("row", "<i4"), ("col", "<i4"), ("val", "<d")])
+        data = np.fromfile(cooccurrence_file, dtype=dt)
+        ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor)
+        val = torch.DoubleTensor(data["val"])
+        cooccurrence = torch.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+        cooccurrence = cooccurrence.coalesce()
 
         if initial_vectors is None:
             vectors = torch.randn([n, self.dim]).type(torch.DoubleTensor)
