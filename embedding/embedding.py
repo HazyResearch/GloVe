@@ -198,19 +198,57 @@ class Embedding(object):
             self.mat = self.cooccurrence.clone()
             self.mat._values().log1p_()
         elif mode == "ppmi":
+            a = time.time()
             self.mat = self.cooccurrence.clone()
-            wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(torch.DoubleTensor)) # individual word counts
+            print("A: ", time.time() - a)
+            a = time.time()
+
+            one = torch.ones([self.n, 1]).type(torch.DoubleTensor)
+            #wc = torch.zeros([self.n, 1]).type(torch.DoubleTensor)
+            #print("B: ", time.time() - a)
+            #a = time.time()
+            #wc[self.mat._indices()[0, :]] += self.mat._values()
+            print("B: ", time.time() - a)
+            a = time.time()
+            wc = torch.mm(self.mat, one) # individual word counts
+            print(wc[:10] / self.mat.shape[0])
+            print("B: ", time.time() - a)
+            a = time.time()
+
             D = torch.sum(wc) # total dictionary size
+            print("C: ", time.time() - a)
+            a = time.time()
+
             # TODO: pytorch doesn't seem to only allow indexing by vector
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
             wc1 = wc[self.mat._indices()[1, :]].squeeze()
+            print("D: ", time.time() - a)
+            a = time.time()
+
 
             ind = self.mat._indices()
             v = self.mat._values()
             nnz = v.shape[0]
-            v = torch.log(v) + torch.log(torch.DoubleTensor(nnz).fill_(D)) - torch.log(wc0) - torch.log(wc1)
+            print("E: ", time.time() - a)
+            a = time.time()
+
+            v = torch.log(v) + math.log(D) - torch.log(wc0) - torch.log(wc1)
+            print("F: ", time.time() - a)
+            a = time.time()
+
             v = v.clamp(min=0)
-            self.mat = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
+            print("G: ", time.time() - a)
+            a = time.time()
+
+            # TODO: filter out zeros
+
+            self.mat = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n]))
+            print("B: ", time.time() - a)
+            a = time.time()
+
+            # matrix should already be coalesced
+            # self.mat = self.mat.coalesce()
+
         end = time.time()
         print("Preprocessing took", end - begin)
         sys.stdout.flush()
