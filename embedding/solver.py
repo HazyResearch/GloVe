@@ -11,13 +11,49 @@ import embedding.util as util
 
 # TODO: automatically match defaults from cmd line?
 
-def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1):
+def power_iteration(dl, x, x0=None, iterations=50, beta=0., norm_freq=1):
+    n, dim = x.shape
+
     for i in range(iterations):
         begin = time.time()
+        print("Iteration", i + 1)
+        sys.stdout.flush()
+
+        newx = 0 * x
+        a = time.time()
+        for ind, val in dl:
+            print(time.time() - a)
+            sys.stdout.flush()
+            a = time.time()
+            # ind = ind.cuda(async=True)
+            ind = ind.cuda()
+            ind = ind.t()
+            print(time.time() - a)
+            sys.stdout.flush()
+            a = time.time()
+            # val = val.cuda(async=True)
+            val = val.cuda()
+            print(time.time() - a)
+            sys.stdout.flush()
+            a = time.time()
+            if x.is_cuda:
+                sample = torch.cuda.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+            else:
+                sample = torch.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+            print(time.time() - a)
+            sys.stdout.flush()
+            a = time.time()
+            newx += torch.mm(sample, x)
+            print(time.time() - a)
+            sys.stdout.flush()
+            a = time.time()
+            print()
+            sys.stdout.flush()
+
         if beta == 0.:
-            x = torch.mm(mat, x)
-        else:
-            x, x0 = torch.mm(mat, x) - beta * x0, x
+            x = newx
+        if beta != 0:
+            x, x0 = newx - beta * x0, x
         end = time.time()
         print("Iteration", i + 1, "took", end - begin)
         sys.stdout.flush()

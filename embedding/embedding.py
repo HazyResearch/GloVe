@@ -8,6 +8,9 @@ import struct
 import argparse
 import sys
 import subprocess
+import math
+
+import torch.utils.data
 
 import embedding.solver as solver
 import embedding.util as util
@@ -218,9 +221,20 @@ class Embedding(object):
         else:
             prev = torch.zeros([self.n, self.dim]).type(torch.DoubleTensor)
 
+        # self.mat.pin_memory()
+        ind = self.mat._indices().t().pin_memory()
+        val = self.mat._values().pin_memory()
+        # ind = self.mat._indices().t()
+        # val = self.mat._values()
+        # ds = torch.utils.data.TensorDataset(self.mat._indices().t(), self.mat._values())
+        ds = torch.utils.data.TensorDataset(ind, val)
+        dl = torch.utils.data.DataLoader(ds, batch_size=batch, pin_memory=gpu, num_workers=10)
+        print(len(dl))
+        sys.stdout.flush()
+
         if gpu:
             begin = time.time()
-            self.mat = self.mat.cuda()
+            # self.mat = self.mat.cuda()
             self.embedding = self.embedding.cuda()
             if prev is not None:
                 prev = prev.cuda()
@@ -229,7 +243,7 @@ class Embedding(object):
             sys.stdout.flush()
 
         if mode == "pi":
-            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq)
+            self.embedding, _ = solver.power_iteration(dl, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq)
         elif mode == "alecton":
             self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "vr":
