@@ -33,7 +33,15 @@ def normalize(x, x0=None):
     dim, = norm.shape
     print("\n" + " ".join(["{:10.2f}".format(n) for n in norm]))
     sys.stdout.flush()
-    temp, r = torch.qr(x)
+    try:
+        temp, r = torch.qr(x)
+    except RuntimeError as e:
+        print("ERROR: QR decomposition has run into a problem")
+        print("Older versions of pytoch had a memory leak in QR:")
+        print("    https://github.com/pytorch/pytorch/issues/3009")
+        print("Updating pytorch may fix this issue.")
+        sys.stdout.flush()
+        raise e
     if np.isnan(torch.sum(temp)):
         # qr seems to occassionally be unstable and result in nan
         print("WARNING: QR decomposition resulted in NaNs")
