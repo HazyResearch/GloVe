@@ -12,12 +12,47 @@ import embedding.util as util
 # TODO: automatically match defaults from cmd line?
 
 def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1):
+    n, dim = x.shape
+    batches = 100
+    nnz = mat._nnz()
+
+    indices = mat._indices()
+    values = mat._values()
+
+    # if x.is_cuda:
+    #     indices = indices.pin_memory()
+    #     values = values.pin_memory()
+
     for i in range(iterations):
         begin = time.time()
+
+        newx = 0 * x
+        for j in range(batches):
+            print(j, "/", batches)
+            sys.stdout.flush()
+            start = j * nnz // batches
+            end = (j + 1) * nnz // batches
+
+            ind = indices[:, start:end]
+            # ind = ind.pin_memory()
+            val = values[start:end]
+            # val = val.pin_memory()
+
+            if x.is_cuda:
+                # TODO: fix async
+                # ind = ind.cuda(async=True)
+                # val = val.cuda(async=True)
+                ind = ind.cuda()
+                val = val.cuda()
+                sample = torch.cuda.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+            else:
+                sample = torch.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+
+            newx += torch.mm(sample, x)
         if beta == 0.:
-            x = torch.mm(mat, x)
+            x = newx
         else:
-            x, x0 = torch.mm(mat, x) - beta * x0, x
+            x, x0 = newx - beta * x0, x
         end = time.time()
         print("Iteration", i + 1, "took", end - begin)
         sys.stdout.flush()

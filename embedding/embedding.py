@@ -220,7 +220,7 @@ class Embedding(object):
 
         if gpu:
             begin = time.time()
-            self.mat = self.mat.cuda()
+            # self.mat = self.mat.cuda()
             self.embedding = self.embedding.cuda()
             if prev is not None:
                 prev = prev.cuda()
