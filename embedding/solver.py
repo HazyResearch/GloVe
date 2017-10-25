@@ -13,42 +13,53 @@ import embedding.util as util
 
 def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1):
     n, dim = x.shape
-    batches = 100
+    batches = 1000
     nnz = mat._nnz()
 
     indices = mat._indices()
     values = mat._values()
 
-    # if x.is_cuda:
-    #     indices = indices.pin_memory()
-    #     values = values.pin_memory()
+    if x.is_cuda:
+        begin = time.time()
+        indices = indices.t().pin_memory()
+        values = values.pin_memory()
+        print("Pinning Memory:", time.time() - begin)
 
     for i in range(iterations):
         begin = time.time()
 
         newx = 0 * x
         for j in range(batches):
-            print(j, "/", batches)
+            print(j, "/", batches, end="\r")
+            # print(j, "/", batches)
             sys.stdout.flush()
             start = j * nnz // batches
             end = (j + 1) * nnz // batches
 
-            ind = indices[:, start:end]
-            # ind = ind.pin_memory()
+            ind = indices[start:end, :]
             val = values[start:end]
+            # ind = ind.pin_memory()
             # val = val.pin_memory()
+            # print("C: ", time.time() - a)
+            # a = time.time()
 
             if x.is_cuda:
                 # TODO: fix async
-                # ind = ind.cuda(async=True)
-                # val = val.cuda(async=True)
-                ind = ind.cuda()
-                val = val.cuda()
-                sample = torch.cuda.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+                ind = ind.cuda(async=True)
+                val = val.cuda(async=True)
+                # print("D: ", time.time() - a)
+                # a = time.time()
+                # ind = ind.cuda()
+                # val = val.cuda()
+                sample = torch.cuda.sparse.DoubleTensor(ind.t(), val, torch.Size([n, n]))
+                # print("E: ", time.time() - a)
+                # a = time.time()
             else:
-                sample = torch.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+                sample = torch.sparse.DoubleTensor(ind.t(), val, torch.Size([n, n]))
 
             newx += torch.mm(sample, x)
+            # print("F: ", time.time() - a)
+            # a = time.time()
         if beta == 0.:
             x = newx
         else:

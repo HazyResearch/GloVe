@@ -31,7 +31,7 @@ def normalize(x, x0=None):
     begin = time.time()
     norm = torch.norm(x, 2, 0, True).squeeze()
     dim, = norm.shape
-    print("\n" + " ".join(["{:10.2f}".format(n) for n in norm]))
+    print(" ".join(["{:10.2f}".format(n) for n in norm]))
     sys.stdout.flush()
     try:
         temp, r = torch.qr(x)
