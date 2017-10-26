@@ -9,7 +9,7 @@ find_package(MKL REQUIRED)
 include_directories(${MKL_INCLUDE_DIRS})
 link_directories(${MKL_LIBRARIES})
 
-set (CMAKE_CXX_FLAGS "-std=c++11")
+set (CMAKE_CXX_FLAGS "-std=c++11 -fopenmp")
 
 # Specify binary name and source file to build it from
 cuda_add_executable(

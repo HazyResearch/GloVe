@@ -48,27 +48,39 @@ std::unique_ptr<double> power_iteration(const CSR<double> &cooccurrence,
 
   timer::stop_clock("CUDA INIT",cuda_init);
 
+  std::cout << cooccurrence.n << " " << cooccurrence.nnz << std::endl;
+  std::cout << n_iterations << " " << n_dimensions << std::endl;
 
   for (size_t i = 0; i < n_iterations; i++) {
-    auto itr_timer = timer::start_clock();
+    const auto itr_timer = timer::start_clock();
     // C = α ∗ op(A) ∗ B + β ∗ C
     const double alpha = 1.0;
     const double beta = -1.0;
-    cusparseDcsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, cooccurrence.n,
+    status = cusparseDcsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, cooccurrence.n,
                    n_dimensions, cooccurrence.n, cooccurrence.nnz,
                    &alpha, descr, cuda_val, cuda_row_ptr,
-                   cuda_col_ind, embedding, n_dimensions,
-                   &beta, x, n_dimensions);
-    timer::stop_clock("ITERATION",itr_timer);
+                   cuda_col_ind, embedding, cooccurrence.n,
+                   &beta, x, cooccurrence.n);
+    if (status != CUSPARSE_STATUS_SUCCESS) {
+      std::cout << "ERROR: Matrix-matrix multiplication failed" << std::endl;
+      std::cout << "status = " << status << std::endl;
+      return std::unique_ptr<double>();
+    }  
+    cudaDeviceSynchronize();
+    timer::stop_clock("ITERATION " + std::to_string(i), itr_timer);
   }
 
+  const auto cuda_free = timer::start_clock();
   cudaFree(cuda_val);
   cudaFree(cuda_row_ptr);
   cudaFree(cuda_col_ind);
+  timer::stop_clock("CUDA FREE",cuda_free);
 
+  const auto cpu_xfr = timer::start_clock();
   double *_x = (double *)malloc(sizeof(double) * cooccurrence.n * n_dimensions);
   cudaMemcpy(_x, x, cooccurrence.n * n_dimensions * sizeof(double),
              cudaMemcpyDeviceToHost);
+  timer::stop_clock("CPU XFR", cpu_xfr);
   return std::unique_ptr<double>(_x);
 }
 } // en

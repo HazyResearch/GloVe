@@ -130,9 +130,9 @@ struct CSR {
     csr.nnz = coo.nnz;
 
     int job[] = {
-        2,    // job(1)=2 (coo->csr with sorting)
-        0,    // job(2)=1 (one-based indexing for csr matrix)
-        0,    // job(3)=1 (one-based indexing for coo matrix)
+        1,    // job(1)=1 (coo->csr with no sorting)
+        0,    // job(2)=0 (zero-based indexing for csr matrix)
+        0,    // job(3)=0 (zero-based indexing for coo matrix)
         0,    // empty
         csr.nnz,  // job(5)=nnz (sets nnz for csr matrix)
         0     // job(6)=0 (all output arrays filled)
