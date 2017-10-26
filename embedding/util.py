@@ -118,7 +118,7 @@ def mm(A, x, gpu=False):
 
                 sample = SparseTensor(ind.t(), val, torch.Size([n, n]))
 
-                newx.addmm(sample, x)
+                newx = newx.addmm(sample, x)
             return newx
         elif A.is_cuda and not x.is_cuda:
             raise NotImplementedError("Forced GPU matrix multiply is not implemented yet.")
