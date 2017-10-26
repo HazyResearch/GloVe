@@ -30,7 +30,6 @@ def normalize(x, x0=None):
     # TODO: more numerically stable implementation?
     begin = time.time()
     norm = torch.norm(x, 2, 0, True).squeeze()
-    dim, = norm.shape
     print(" ".join(["{:10.2f}".format(n) for n in norm]))
     sys.stdout.flush()
     try:
@@ -68,3 +67,59 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
+
+def mm(A, x, gpu=False):
+
+    if not gpu:
+        # Do not force GPU use
+        return torch.mm(A, x)
+    else:
+        if A.is_cuda and x.is_cuda:
+            # Everything on GPU anyways, just multiply normally
+            # TODO: workaround for pytorch memory leak
+            return torch.mm(A, x)
+        elif not A.is_cuda and x.is_cuda:
+
+            if A.type() == "torch.sparse.FloatTensor":
+                SparseTensor = torch.cuda.sparse.FloatTensor
+            elif A.type() == "torch.sparse.DoubleTensor":
+                SparseTensor = torch.cuda.sparse.DoubleTensor
+            else:
+                raise NotImplementedError("Type of cooccurrence matrix (" + A.type() + ") is not recognized.")
+
+            n, dim = x.shape
+            nnz = A._nnz()
+
+            indices = A._indices()
+            values = A._values()
+
+            begin = time.time()
+            indices = indices.t().pin_memory()
+            values = values.pin_memory()
+            print("Pinning Memory:", time.time() - begin)
+
+            batches = 1000
+            newx = 0 * x
+            for j in range(batches):
+                print(j, "/", batches, end="\r")
+                # print(j, "/", batches)
+                sys.stdout.flush()
+                start = j * nnz // batches
+                end = (j + 1) * nnz // batches
+
+                ind = indices[start:end, :]
+                val = values[start:end]
+
+                ind = ind.cuda(async=True)
+                val = val.cuda(async=True)
+
+                sample = SparseTensor(ind.t(), val, torch.Size([n, n]))
+
+                newx.addmm(sample, x)
+            return newx
+        elif A.is_cuda and not x.is_cuda:
+            raise NotImplementedError("Forced GPU matrix multiply is not implemented yet.")
+        elif not A.is_cuda and not x.is_cuda:
+            raise NotImplementedError("Forced GPU matrix multiply is not implemented yet.")
+
+

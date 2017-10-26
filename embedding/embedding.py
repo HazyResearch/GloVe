@@ -66,7 +66,11 @@ def main(argv=None):
                                 help="Toggle to normalize embeddings")
 
     compute_parser.add_argument("-g", "--gpu", type=util.str2bool, default=True,
-                                help="Toggle to use GPU")
+                                help="Toggle to use GPU for computations")
+    compute_parser.add_argument("--matgpu", type=util.str2bool, default=None,
+                                help="Toggle to store cooccurrence matrix on GPU")
+    compute_parser.add_argument("--embedgpu", type=util.str2bool, default=None,
+                                help="Toggle to store embeddings on GPU")
 
     compute_parser.add_argument("--precision", type=str, default="float",
                                 choices=["half", "float", "double"],
@@ -100,6 +104,8 @@ def main(argv=None):
         if args.precision == "half":
             CpuTensor = torch.HalfTensor
             GpuTensor = torch.cuda.HalfTensor
+            # TODO: sparse half tensors not implemented by torch
+            # probably just delete the option
             CpuSparseTensor = torch.sparse.HalfTensor
             GpuSparseTensor = torch.cuda.sparse.HalfTensor
         elif args.precision == "float":
@@ -117,7 +123,7 @@ def main(argv=None):
             print("         Defaulting to \"float\".")
             sys.stdout.flush()
 
-        embedding = Embedding(args.dim, args.gpu, CpuTensor, GpuTensor, CpuSparseTensor, GpuSparseTensor)
+        embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor, GpuTensor, CpuSparseTensor, GpuSparseTensor)
         embedding.load_from_file(args.vocab, args.cooccurrence, args.initial)
         # embedding.load(*util.synthetic(2, 4))
         embedding.preprocessing(args.preprocessing)
@@ -153,10 +159,21 @@ def main(argv=None):
 
 
 class Embedding(object):
-    def __init__(self, dim=50, gpu=True, CpuTensor=torch.FloatTensor, GpuTensor=torch.cuda.FloatTensor,
+    def __init__(self, dim=50, gpu=True, matgpu=None, embedgpu=None,
+                 CpuTensor=torch.FloatTensor, GpuTensor=torch.cuda.FloatTensor,
                  CpuSparseTensor=torch.cuda.FloatTensor, GpuSparseTensor=torch.cuda.sparse.FloatTensor):
         self.dim = dim
         self.gpu = gpu
+
+        # TODO: add warning for storage on gpu when computation is on gpu
+        # TODO: swap off storage if too much memory 
+        if matgpu is None:
+            matgpu = gpu
+        if embedgpu is None:
+            embedgpu = gpu
+        self.matgpu = matgpu
+        self.embedgpu = embedgpu
+
         self.CpuTensor = CpuTensor
         self.GpuTensor = GpuTensor
         self.CpuSparseTensor = CpuSparseTensor
@@ -202,10 +219,6 @@ class Embedding(object):
         ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor) - 1
         val = self.CpuTensor(data["val"])
         cooccurrence = self.CpuSparseTensor(ind, val, torch.Size([n, n]))
-        # TODO: avoid putting cooccurrence on gpu?
-        # delay until preprocessing
-        if self.gpu:
-            cooccurrence = cooccurrence.cuda()
         # TODO: coalescing is very slow, and the cooccurrence matrix is
         # almost always coalesced, but this might not be safe
         # cooccurrence = cooccurrence.coalesce()
@@ -215,7 +228,7 @@ class Embedding(object):
 
         if initial_vectors is None:
             begin = time.time()
-            if self.gpu:
+            if self.embedgpu:
                 vectors = self.GpuTensor(n, self.dim)
             else:
                 vectors = self.CpuTensor(n, self.dim)
@@ -227,7 +240,7 @@ class Embedding(object):
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
             with open(initial_vectors, "r") as f:
-                if self.gpu:
+                if self.embedgpu:
                     vectors = self.GpuTensor([[float(v) for v in line.split()[1:]] for line in f])
                 else:
                     vectors = self.CpuTensor([[float(v) for v in line.split()[1:]] for line in f])
@@ -236,20 +249,26 @@ class Embedding(object):
 
     def preprocessing(self, mode="ppmi"):
         begin = time.time()
-        if mode == "none":
-            self.mat = self.cooccurrence
-        elif mode == "log1p":
+        # TODO put on gpu
+        if self.matgpu:
+            self.mat = self.cooccurrence.cuda()
+        else:
             self.mat = self.cooccurrence.clone()
+
+        if mode == "none":
+            pass
+        elif mode == "log1p":
             self.mat._values().log1p_()
         elif mode == "ppmi":
             a = time.time()
-            self.mat = self.cooccurrence.clone()
             # TODO: better way of getting row/col sum
             if self.mat.is_cuda:
                 wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(self.GpuTensor)) # individual word counts
             else:
                 wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(self.CpuTensor)) # individual word counts
+
             D = torch.sum(wc) # total dictionary size
+
             # TODO: pytorch doesn't seem to only allow indexing by vector
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
             wc1 = wc[self.mat._indices()[1, :]].squeeze()
@@ -259,18 +278,22 @@ class Embedding(object):
             nnz = v.shape[0]
             v = torch.log(v) + math.log(D) - torch.log(wc0) - torch.log(wc1)
             v = v.clamp(min=0)
-            if ind.is_cuda:
-                keep = (v != 0).type(torch.cuda.LongTensor)
-            else:
-                keep = (v != 0).type(torch.LongTensor)
-            ind = ind[:, keep]
-            v = v[keep]
-            print("nnz after ppmi processing:", torch.sum(keep))
+            # TODO: why does removing zeros cause a bug?
+            # if ind.is_cuda:
+            #     keep = (v != 0).type(torch.cuda.LongTensor)
+            # else:
+            #     keep = (v != 0).type(torch.LongTensor)
+            # ind = ind[:, keep]
+            # v = v[keep]
+            # print("nnz after ppmi processing:", torch.sum(keep))
             if self.mat.is_cuda:
                 self.mat = self.GpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
             else:
                 self.mat = self.CpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
             # self.mat = self.mat.coalesce()
+
+        # TODO: pin memory if gpu and not matgpu
+
         end = time.time()
         print("Preprocessing took", end - begin)
         sys.stdout.flush()
