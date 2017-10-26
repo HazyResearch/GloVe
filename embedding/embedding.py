@@ -190,8 +190,6 @@ class Embedding(object):
         self.embedding = embedding
 
     def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", initial_vectors=None):
-        # TODO: option of FloatTensor
-
         begin = time.time()
 
         def parse_line(l):
@@ -334,7 +332,7 @@ class Embedding(object):
         begin = time.time()
 
         # TODO: faster estimation of eigenvalues?
-        temp = torch.mm(self.mat, self.embedding)
+        temp = util.mm(self.mat, self.embedding, self.gpu)
         norm = torch.norm(temp, 2, 0, True)
 
         norm = norm.pow(p)
