@@ -1,6 +1,8 @@
 from __future__ import print_function, absolute_import
 
 import torch
+import numba
+
 import numpy as np
 import time
 import sys
@@ -71,6 +73,7 @@ def str2bool(v):
 def mm(A, x, gpu=False):
 
     if not gpu:
+        # TODO: maybe just merge this into the else block
         # Do not force GPU use
         return torch.mm(A, x)
     else:
@@ -122,4 +125,17 @@ def mm(A, x, gpu=False):
         elif not A.is_cuda and not x.is_cuda:
             raise NotImplementedError("Forced GPU matrix multiply is not implemented yet.")
 
+def sum_rows(A, GpuTensor):
+    n = A.shape[0]
+    if A.is_cuda:
+        return torch.mm(A, torch.ones([n, 1]).type(GpuTensor)) # individual word counts
+    else:
+        @numba.jit(nopython=True, cache=True)
+        def sr(n, ind, val):
+            nnz = val.shape[0]
+            ans = np.zeros((n, 1), dtype=np.float32) # TODO: match type to gpu tensor
+            for i in range(nnz):
+                ans[ind[0, i]] += val[i]
+            return ans
+        return torch.FloatTensor(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
 
