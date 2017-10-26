@@ -259,11 +259,8 @@ class Embedding(object):
             self.mat._values().log1p_()
         elif mode == "ppmi":
             a = time.time()
-            # TODO: better way of getting row/col sum
-            if self.mat.is_cuda:
-                wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(self.GpuTensor)) # individual word counts
-            else:
-                wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(self.CpuTensor)) # individual word counts
+
+            wc = util.sum_rows(self.mat, self.GpuTensor)
 
             D = torch.sum(wc) # total dictionary size
 
