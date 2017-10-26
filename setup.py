@@ -9,6 +9,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "torch",
+        "numba",
         "scipy"
     ],
     entry_points={
