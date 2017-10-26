@@ -11,7 +11,7 @@ import embedding.util as util
 
 # TODO: automatically match defaults from cmd line?
 
-def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1):
+def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=False):
     n, dim = x.shape
     batches = 1000
     nnz = mat._nnz()

@@ -8,6 +8,7 @@ import struct
 import argparse
 import sys
 import subprocess
+import math
 
 import embedding.solver as solver
 import embedding.util as util
@@ -67,6 +68,10 @@ def main(argv=None):
     compute_parser.add_argument("-g", "--gpu", type=util.str2bool, default=True,
                                 help="Toggle to use GPU")
 
+    compute_parser.add_argument("--precision", type=str, default="float",
+                                choices=["half", "float", "double"],
+                                help="Precision of values")
+
     # Evaluate parser
     evaluate_parser = subparser.add_parser("evaluate", help="Evaluate performance of an embedding on standard tasks.")
 
@@ -77,17 +82,42 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
-    if hasattr(args, "gpu") and args.gpu and not torch.cuda.is_available():
-        print("WARNING: GPU use requested, but GPU not available.")
-        print("         Toggling off GPU use.")
-        sys.stdout.flush()
-        args.gpu = False
 
     if args.task == "cooccurrence":
         # subprocess.call(["./cooccurrence.sh", args.text], cwd=os.path.join(os.path.dirname(__file__), "..",))
         subprocess.call([os.path.join(os.path.dirname(__file__), "..", "cooccurrence.sh"), args.text])
     elif args.task == "compute":
-        embedding = Embedding(args.dim)
+        if args.gpu and not torch.cuda.is_available():
+            print("WARNING: GPU use requested, but GPU not available.")
+            print("         Toggling off GPU use.")
+            sys.stdout.flush()
+            args.gpu = False
+
+        CpuTensor = torch.FloatTensor
+        GpuTensor = torch.cuda.FloatTensor
+        CpuSparseTensor = torch.sparse.FloatTensor
+        GpuSparseTensor = torch.cuda.sparse.FloatTensor
+        if args.precision == "half":
+            CpuTensor = torch.HalfTensor
+            GpuTensor = torch.cuda.HalfTensor
+            CpuSparseTensor = torch.sparse.HalfTensor
+            GpuSparseTensor = torch.cuda.sparse.HalfTensor
+        elif args.precision == "float":
+            CpuTensor = torch.FloatTensor
+            GpuTensor = torch.cuda.FloatTensor
+            CpuSparseTensor = torch.sparse.FloatTensor
+            GpuSparseTensor = torch.cuda.sparse.FloatTensor
+        elif args.precision == "double":
+            CpuTensor = torch.DoubleTensor
+            GpuTensor = torch.cuda.DoubleTensor
+            CpuSparseTensor = torch.sparse.DoubleTensor
+            GpuSparseTensor = torch.cuda.sparse.DoubleTensor
+        else:
+            print("WARNING: Precision \"" + args.precision + "\" is not recognized.")
+            print("         Defaulting to \"float\".")
+            sys.stdout.flush()
+
+        embedding = Embedding(args.dim, args.gpu, CpuTensor, GpuTensor, CpuSparseTensor, GpuSparseTensor)
         embedding.load_from_file(args.vocab, args.cooccurrence, args.initial)
         # embedding.load(*util.synthetic(2, 4))
         embedding.preprocessing(args.preprocessing)
@@ -123,8 +153,14 @@ def main(argv=None):
 
 
 class Embedding(object):
-    def __init__(self, dim=50):
+    def __init__(self, dim=50, gpu=True, CpuTensor=torch.FloatTensor, GpuTensor=torch.cuda.FloatTensor,
+                 CpuSparseTensor=torch.cuda.FloatTensor, GpuSparseTensor=torch.cuda.sparse.FloatTensor):
         self.dim = dim
+        self.gpu = gpu
+        self.CpuTensor = CpuTensor
+        self.GpuTensor = GpuTensor
+        self.CpuSparseTensor = CpuSparseTensor
+        self.GpuSparseTensor = GpuSparseTensor
 
     def load(self, cooccurrence, vocab, words, embedding=None):
         self.n = cooccurrence.size()[0]
@@ -149,7 +185,7 @@ class Embedding(object):
         with open(vocab_file) as f:
             lines = [parse_line(l) for l in f]
             words = [l[0] for l in lines]
-            vocab = torch.DoubleTensor([l[1] for l in lines])
+            vocab = self.CpuTensor([l[1] for l in lines])
         n = vocab.size()[0]
         print("n:", n)
         sys.stdout.flush()
@@ -164,8 +200,12 @@ class Embedding(object):
         dt = np.dtype([("row", "<i4"), ("col", "<i4"), ("val", "<d")])
         data = np.fromfile(cooccurrence_file, dtype=dt)
         ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor) - 1
-        val = torch.DoubleTensor(data["val"])
-        cooccurrence = torch.sparse.DoubleTensor(ind, val, torch.Size([n, n]))
+        val = self.CpuTensor(data["val"])
+        cooccurrence = self.CpuSparseTensor(ind, val, torch.Size([n, n]))
+        # TODO: avoid putting cooccurrence on gpu?
+        # delay until preprocessing
+        if self.gpu:
+            cooccurrence = cooccurrence.cuda()
         # TODO: coalescing is very slow, and the cooccurrence matrix is
         # almost always coalesced, but this might not be safe
         # cooccurrence = cooccurrence.coalesce()
@@ -175,15 +215,22 @@ class Embedding(object):
 
         if initial_vectors is None:
             begin = time.time()
-            vectors = torch.randn([n, self.dim]).type(torch.DoubleTensor)
+            if self.gpu:
+                vectors = self.GpuTensor(n, self.dim)
+            else:
+                vectors = self.CpuTensor(n, self.dim)
+            vectors.random_(2)
             end = time.time()
             print("Random initialization took ", end - begin)
+            vectors, _ = util.normalize(vectors)
         else:
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
             with open(initial_vectors, "r") as f:
-                vectors = torch.DoubleTensor([[float(v) for v in line.split()[1:]] for line in f])
-        vectors, _ = util.normalize(vectors)
+                if self.gpu:
+                    vectors = self.GpuTensor([[float(v) for v in line.split()[1:]] for line in f])
+                else:
+                    vectors = self.CpuTensor([[float(v) for v in line.split()[1:]] for line in f])
 
         self.load(cooccurrence, vocab, words, vectors)
 
@@ -195,8 +242,13 @@ class Embedding(object):
             self.mat = self.cooccurrence.clone()
             self.mat._values().log1p_()
         elif mode == "ppmi":
+            a = time.time()
             self.mat = self.cooccurrence.clone()
-            wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(torch.DoubleTensor)) # individual word counts
+            # TODO: better way of getting row/col sum
+            if self.mat.is_cuda:
+                wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(self.GpuTensor)) # individual word counts
+            else:
+                wc = torch.mm(self.mat, torch.ones([self.n, 1]).type(self.CpuTensor)) # individual word counts
             D = torch.sum(wc) # total dictionary size
             # TODO: pytorch doesn't seem to only allow indexing by vector
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
@@ -205,9 +257,20 @@ class Embedding(object):
             ind = self.mat._indices()
             v = self.mat._values()
             nnz = v.shape[0]
-            v = torch.log(v) + torch.log(torch.DoubleTensor(nnz).fill_(D)) - torch.log(wc0) - torch.log(wc1)
+            v = torch.log(v) + math.log(D) - torch.log(wc0) - torch.log(wc1)
             v = v.clamp(min=0)
-            self.mat = torch.sparse.DoubleTensor(ind, v, torch.Size([self.n, self.n])).coalesce()
+            if ind.is_cuda:
+                keep = (v != 0).type(torch.cuda.LongTensor)
+            else:
+                keep = (v != 0).type(torch.LongTensor)
+            ind = ind[:, keep]
+            v = v[keep]
+            print("nnz after ppmi processing:", torch.sum(keep))
+            if self.mat.is_cuda:
+                self.mat = self.GpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+            else:
+                self.mat = self.CpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+            # self.mat = self.mat.coalesce()
         end = time.time()
         print("Preprocessing took", end - begin)
         sys.stdout.flush()
@@ -216,20 +279,15 @@ class Embedding(object):
         if momentum == 0.:
             prev = None
         else:
-            prev = torch.zeros([self.n, self.dim]).type(torch.DoubleTensor)
-
-        if gpu:
-            begin = time.time()
-            # self.mat = self.mat.cuda()
-            self.embedding = self.embedding.cuda()
-            if prev is not None:
-                prev = prev.cuda()
-            end = time.time()
-            print("GPU Loading:", end - begin)
-            sys.stdout.flush()
+            if self.embedding.is_cuda:
+                prev = self.GpuTensor(self.n, self.dim)
+                prev.zeros_()
+            else:
+                prev = self.CpuTensor(self.n, self.dim)
+                prev.zeros_()
 
         if mode == "pi":
-            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq)
+            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu = gpu)
         elif mode == "alecton":
             self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "vr":
