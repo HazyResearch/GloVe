@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(CMAKE_MODULE_PATH "/dfs/scratch0/caberger/systems/GloVe/embedding_cpp/cmake/;${CMAKE_MODULE_PATH}")
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/;${CMAKE_MODULE_PATH}")
 
 find_package(CUDA QUIET REQUIRED)
 find_package(MKL REQUIRED)
