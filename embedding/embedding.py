@@ -14,6 +14,7 @@ import logging
 import embedding.solver as solver
 import embedding.util as util
 import embedding.evaluate as evaluate
+import embedding.tensor_type as tensor_type
 
 def main(argv=None):
 
@@ -74,7 +75,7 @@ def main(argv=None):
                                 help="Toggle to store embeddings on GPU")
 
     compute_parser.add_argument("--precision", type=str, default="float",
-                                choices=["half", "float", "double"],
+                                choices=["float", "double"],
                                 help="Precision of values")
 
     # Evaluate parser
@@ -101,32 +102,16 @@ def main(argv=None):
             args.gpu = False
 
         CpuTensor = torch.FloatTensor
-        GpuTensor = torch.cuda.FloatTensor
-        CpuSparseTensor = torch.sparse.FloatTensor
-        GpuSparseTensor = torch.cuda.sparse.FloatTensor
-        if args.precision == "half":
-            CpuTensor = torch.HalfTensor
-            GpuTensor = torch.cuda.HalfTensor
-            # TODO: sparse half tensors not implemented by torch
-            # probably just delete the option
-            CpuSparseTensor = torch.sparse.HalfTensor
-            GpuSparseTensor = torch.cuda.sparse.HalfTensor
-        elif args.precision == "float":
+        if args.precision == "float":
             CpuTensor = torch.FloatTensor
-            GpuTensor = torch.cuda.FloatTensor
-            CpuSparseTensor = torch.sparse.FloatTensor
-            GpuSparseTensor = torch.cuda.sparse.FloatTensor
         elif args.precision == "double":
             CpuTensor = torch.DoubleTensor
-            GpuTensor = torch.cuda.DoubleTensor
-            CpuSparseTensor = torch.sparse.DoubleTensor
-            GpuSparseTensor = torch.cuda.sparse.DoubleTensor
         else:
             print("WARNING: Precision \"" + args.precision + "\" is not recognized.")
             print("         Defaulting to \"float\".")
             sys.stdout.flush()
 
-        embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor, GpuTensor, CpuSparseTensor, GpuSparseTensor)
+        embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
         embedding.load_from_file(args.vocab, args.cooccurrence, args.initial)
         # embedding.load(*util.synthetic(2, 4))
         embedding.preprocessing(args.preprocessing)
@@ -162,9 +147,7 @@ def main(argv=None):
 
 
 class Embedding(object):
-    def __init__(self, dim=50, gpu=True, matgpu=None, embedgpu=None,
-                 CpuTensor=torch.FloatTensor, GpuTensor=torch.cuda.FloatTensor,
-                 CpuSparseTensor=torch.cuda.FloatTensor, GpuSparseTensor=torch.cuda.sparse.FloatTensor):
+    def __init__(self, dim=50, gpu=True, matgpu=None, embedgpu=None, CpuTensor=torch.FloatTensor):
         self.dim = dim
         self.gpu = gpu
 
@@ -178,9 +161,6 @@ class Embedding(object):
         self.embedgpu = embedgpu
 
         self.CpuTensor = CpuTensor
-        self.GpuTensor = GpuTensor
-        self.CpuSparseTensor = CpuSparseTensor
-        self.GpuSparseTensor = GpuSparseTensor
 
     def load(self, cooccurrence, vocab, words, embedding=None):
         self.n = cooccurrence.size()[0]
@@ -219,7 +199,7 @@ class Embedding(object):
         data = np.fromfile(cooccurrence_file, dtype=dt)
         ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor) - 1
         val = self.CpuTensor(data["val"])
-        cooccurrence = self.CpuSparseTensor(ind, val, torch.Size([n, n]))
+        cooccurrence = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size([n, n]))
         # TODO: coalescing is very slow, and the cooccurrence matrix is
         # almost always coalesced, but this might not be safe
         # cooccurrence = cooccurrence.coalesce()
@@ -230,7 +210,7 @@ class Embedding(object):
         if initial_vectors is None:
             begin = time.time()
             if self.embedgpu:
-                vectors = self.GpuTensor(n, self.dim)
+                vectors = tensor_type.to_gpu(self.CpuTensor)(n, self.dim)
             else:
                 vectors = self.CpuTensor(n, self.dim)
             vectors.random_(2)
@@ -243,7 +223,7 @@ class Embedding(object):
             # verify that the vectors have a matching dim
             with open(initial_vectors, "r") as f:
                 if self.embedgpu:
-                    vectors = self.GpuTensor([[float(v) for v in line.split()[1:]] for line in f])
+                    vectors = tensor_type.toCpu(self.CpuTensor)([[float(v) for v in line.split()[1:]] for line in f])
                 else:
                     vectors = self.CpuTensor([[float(v) for v in line.split()[1:]] for line in f])
 
@@ -267,7 +247,7 @@ class Embedding(object):
         elif mode == "ppmi":
             a = time.time()
 
-            wc = util.sum_rows(self.mat, self.GpuTensor)
+            wc = util.sum_rows(self.mat)
 
             D = torch.sum(wc) # total dictionary size
 
@@ -289,18 +269,18 @@ class Embedding(object):
             # v = v[keep]
             # print("nnz after ppmi processing:", torch.sum(keep))
             if self.mat.is_cuda:
-                self.mat = self.GpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+                self.mat = tensor_type.to_gpu(tensor_type.to_sparse(self.CpuTensor))(ind, v, torch.Size([self.n, self.n]))
             else:
-                self.mat = self.CpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+                self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
             # self.mat = self.mat.coalesce()
 
         if self.gpu and not self.matgpu:
                 ind = self.mat._indices().t().pin_memory().t()
                 v = self.mat._values().pin_memory()
                 if self.mat.is_cuda:
-                    self.mat = self.GpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+                    self.mat = tensor_type.to_gpu(tensor_type.to_sparse(self.CpuTensor))(ind, v, torch.Size([self.n, self.n]))
                 else:
-                    self.mat = self.CpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+                    self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
 
         # TODO: how slow is pinning?
         # begin = time.time()
@@ -318,7 +298,7 @@ class Embedding(object):
             prev = None
         else:
             if self.embedding.is_cuda:
-                prev = self.GpuTensor(self.n, self.dim)
+                prev = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
                 prev.zeros_()
             else:
                 prev = self.CpuTensor(self.n, self.dim)

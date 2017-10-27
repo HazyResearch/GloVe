@@ -37,3 +37,5 @@ script:
   - python -m embedding evaluate
   - embedding compute --precision double
   - embedding evaluate
+  - python test/test_tensor_type_conversion.py
+
