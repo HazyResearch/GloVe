@@ -36,4 +36,4 @@ script:
   - python -m embedding compute
   - python -m embedding evaluate
   - embedding compute --precision double
-  - embedding evaluate --precision double
+  - embedding evaluate
