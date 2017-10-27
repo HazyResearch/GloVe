@@ -9,6 +9,7 @@ import argparse
 import sys
 import subprocess
 import math
+import logging
 
 import embedding.solver as solver
 import embedding.util as util
@@ -86,6 +87,8 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
+    # Prepare logger
+    logging.getLogger(__name__).addHandler(logging.NullHandler())
 
     if args.task == "cooccurrence":
         # subprocess.call(["./cooccurrence.sh", args.text], cwd=os.path.join(os.path.dirname(__file__), "..",))
@@ -233,6 +236,7 @@ class Embedding(object):
             vectors.random_(2)
             end = time.time()
             print("Random initialization took ", end - begin)
+            sys.stdout.flush()
             vectors, _ = util.normalize(vectors)
         else:
             # TODO: verify that the vectors have the right set of words
@@ -242,6 +246,9 @@ class Embedding(object):
                     vectors = self.GpuTensor([[float(v) for v in line.split()[1:]] for line in f])
                 else:
                     vectors = self.CpuTensor([[float(v) for v in line.split()[1:]] for line in f])
+
+        if self.gpu and not self.embedgpu:
+            vectors = vectors.pin_memory()
 
         self.load(cooccurrence, vocab, words, vectors)
 
@@ -287,7 +294,20 @@ class Embedding(object):
                 self.mat = self.CpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
             # self.mat = self.mat.coalesce()
 
-        # TODO: pin memory if gpu and not matgpu
+        if self.gpu and not self.matgpu:
+                ind = self.mat._indices().t().pin_memory().t()
+                v = self.mat._values().pin_memory()
+                if self.mat.is_cuda:
+                    self.mat = self.GpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+                else:
+                    self.mat = self.CpuSparseTensor(ind, v, torch.Size([self.n, self.n]))
+
+        # TODO: how slow is pinning?
+        # begin = time.time()
+        # indices = indices.t().pin_memory()
+        # values = values.pin_memory()
+        # torch.cuda.synchronize()
+        # print("Pinning Memory:", time.time() - begin)
 
         end = time.time()
         print("Preprocessing took", end - begin)
