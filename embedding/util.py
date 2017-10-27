@@ -100,8 +100,8 @@ def mm(A, x, gpu=False):
             values = A._values()
 
             # TODO: automate batch choice
-            A_batches = 100
-            x_batches = 10
+            A_batches = 35
+            x_batches = 5
             if A.is_cuda:
                 A_batches = 1
             if x.is_cuda:
