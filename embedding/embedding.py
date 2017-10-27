@@ -313,7 +313,7 @@ class Embedding(object):
         if normalize:
             self.normalize_embeddings()
 
-        if gpu:
+        if self.embedding.is_cuda:
             begin = time.time()
             self.embedding = self.embedding.cpu()
             end = time.time()
