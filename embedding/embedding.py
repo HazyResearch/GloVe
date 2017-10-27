@@ -234,7 +234,7 @@ class Embedding(object):
 
     def preprocessing(self, mode="ppmi"):
         begin = time.time()
-        # TODO put on gpu
+
         if self.matgpu:
             self.mat = self.cooccurrence.cuda()
         else:
@@ -251,7 +251,7 @@ class Embedding(object):
 
             D = torch.sum(wc) # total dictionary size
 
-            # TODO: pytorch doesn't seem to only allow indexing by vector
+            # TODO: pytorch doesn't seem to only allow indexing by 2D tensor
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
             wc1 = wc[self.mat._indices()[1, :]].squeeze()
 
@@ -260,27 +260,23 @@ class Embedding(object):
             nnz = v.shape[0]
             v = torch.log(v) + math.log(D) - torch.log(wc0) - torch.log(wc1)
             v = v.clamp(min=0)
-            # TODO: why does removing zeros cause a bug?
-            # if ind.is_cuda:
-            #     keep = (v != 0).type(torch.cuda.LongTensor)
-            # else:
-            #     keep = (v != 0).type(torch.LongTensor)
-            # ind = ind[:, keep]
-            # v = v[keep]
-            # print("nnz after ppmi processing:", torch.sum(keep))
+
+            keep = v.nonzero().squeeze(1)
+            if keep.shape[0] != v.shape[0]:
+                ind = ind[:, keep]
+                v = v[keep]
+                print("nnz after ppmi processing:", keep.shape[0])
+
+                self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
+            # self.mat = self.mat.coalesce()
+
+        if self.gpu and not self.matgpu:
+            ind = self.mat._indices().t().pin_memory().t()
+            v = self.mat._values().pin_memory()
             if self.mat.is_cuda:
                 self.mat = tensor_type.to_gpu(tensor_type.to_sparse(self.CpuTensor))(ind, v, torch.Size([self.n, self.n]))
             else:
                 self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
-            # self.mat = self.mat.coalesce()
-
-        if self.gpu and not self.matgpu:
-                ind = self.mat._indices().t().pin_memory().t()
-                v = self.mat._values().pin_memory()
-                if self.mat.is_cuda:
-                    self.mat = tensor_type.to_gpu(tensor_type.to_sparse(self.CpuTensor))(ind, v, torch.Size([self.n, self.n]))
-                else:
-                    self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
 
         # TODO: how slow is pinning?
         # begin = time.time()
