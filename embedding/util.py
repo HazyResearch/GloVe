@@ -162,9 +162,9 @@ def sum_rows(A):
         @numba.jit(nopython=True, cache=True)
         def sr(n, ind, val):
             nnz = val.shape[0]
-            ans = np.zeros((n, 1), dtype=np.float32) # TODO: match type to gpu tensor
+            ans = np.zeros((n, 1), dtype=val.dtype)
             for i in range(nnz):
                 ans[ind[0, i]] += val[i]
             return ans
-        return torch.FloatTensor(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
+        return tensor_type.to_dense(A.type())(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
 
