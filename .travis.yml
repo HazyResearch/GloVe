@@ -30,7 +30,7 @@ install:
 script:
   - pwd
   - find .
-  - python test/test_tensor_type_conversion.py
+  # python test/test_tensor_type_conversion.py
   - cd embedding/data/cooccurrence/wikipedia_sample
   - embedding compute
   - embedding evaluate
