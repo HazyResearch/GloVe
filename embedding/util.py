@@ -75,7 +75,6 @@ def mm(A, x, gpu=False):
     if not (A.is_cuda or x.is_cuda or gpu):
         # Data and computation on CPU
         return torch.mm(A, x)
-        return numba_mm(A, x)
     else:
         # Compute on GPU, regardless of where data is
         if A.is_cuda and x.is_cuda:
@@ -164,25 +163,4 @@ def sum_rows(A, GpuTensor):
                 ans[ind[0, i]] += val[i]
             return ans
         return torch.FloatTensor(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
-
-
-def numba_mm(A, x):
-
-    print("numba_mm")
-
-    @numba.jit(nopython=True, cache=True)
-    def mul(ind, val, x):
-        nnz, = val.shape
-        n, dim = x.shape
-
-        ans = np.zeros_like(x)
-
-        for j in range(dim):
-            for i in range(nnz):
-                ans[ind[0, i], j] += val[i] * x[ind[1, i], j]
-
-        return ans
-
-    ans = torch.FloatTensor(mul(A._indices().numpy(), A._values().numpy(), x.numpy()))
-    return ans
 
