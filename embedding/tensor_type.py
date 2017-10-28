@@ -1,10 +1,12 @@
 import torch
 
+
 def to_cpu(tt):
     tt = string2tt(tt)
     assert(tt[0])
     tt[0] = False
     return eval(tt2string(tt))
+
 
 def to_gpu(tt):
     tt = string2tt(tt)
@@ -12,11 +14,13 @@ def to_gpu(tt):
     tt[0] = True
     return eval(tt2string(tt))
 
+
 def to_dense(tt):
     tt = string2tt(tt)
     assert(tt[1])
     tt[1] = False
     return eval(tt2string(tt))
+
 
 def to_sparse(tt):
     tt = string2tt(tt)
@@ -24,11 +28,13 @@ def to_sparse(tt):
     tt[1] = True
     return eval(tt2string(tt))
 
+
 def to_precision(tt, precision):
     tt = string2tt(tt)
     assert(precision[-6:] == "Tensor")
     tt[2] = precision
     return eval(tt2string(tt))
+
 
 def string2tt(string):
     if type(string) == type:
@@ -59,6 +65,7 @@ def string2tt(string):
     tt[2] = string[0]
 
     return tt
+
 
 def tt2string(tt):
     assert(len(tt) == 3)

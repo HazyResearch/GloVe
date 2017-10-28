@@ -11,6 +11,7 @@ import embedding.util as util
 
 # TODO: automatically match defaults from cmd line?
 
+
 def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=False):
     for i in range(iterations):
         begin = time.time()
@@ -31,6 +32,7 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=Fa
 
     return x, x0
 
+
 def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
     # TODO: alecton will need a lot more iterations (since one iteration does
     #       much less work) -- clean way to have different defaults?
@@ -44,7 +46,7 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
     # if mat.is_cuda:
     #     samples = samples.cuda()
 
-    rng = torch.FloatTensor(batch) # TODO: seems like theres no long random on cuda
+    rng = torch.FloatTensor(batch)  # TODO: seems like theres no long random on cuda
     if mat.is_cuda:
         rng = rng.cuda()
 
@@ -52,7 +54,7 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
         begin = time.time()
         # x += eta * torch.mm(torch.spmm(samples, mat), x)
         rng.uniform_(nnz)
-        if mat.is_cuda: # TODO: way to do this without cases?
+        if mat.is_cuda:  # TODO: way to do this without cases?
             elements = rng.type(torch.cuda.LongTensor)
         else:
             elements = rng.type(torch.LongTensor)
@@ -77,12 +79,13 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
 
     return x
 
+
 def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, innerloop=10):
     n = mat.shape[0]
     nnz, = mat._values().shape
     batch = min(batch, nnz)
 
-    rng = torch.FloatTensor(batch) # TODO: seems like theres no long random on cuda
+    rng = torch.FloatTensor(batch)  # TODO: seems like theres no long random on cuda
     if mat.is_cuda:
         rng = rng.cuda()
 
@@ -95,7 +98,7 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
             ang = torch.sum(x * xtilde, 0).expand_as(xtilde)
 
             rng.uniform_(nnz)
-            if mat.is_cuda: # TODO: way to do this without cases?
+            if mat.is_cuda:  # TODO: way to do this without cases?
                 elements = rng.type(torch.cuda.LongTensor)
             else:
                 elements = rng.type(torch.LongTensor)
@@ -125,6 +128,7 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
         x, x0 = util.normalize(x, x0)
 
     return x, x0
+
 
 def sgd(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
     raise NotImplementedError("SGD solver is not implemented yet.")

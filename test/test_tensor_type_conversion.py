@@ -41,6 +41,7 @@ type_count = len(torch_types["CPU Dense"])
 
 all_torch_types = [t for sublist in torch_types.values() for t in sublist]
 
+
 class TestTensorType(unittest.TestCase):
     def test_consistency(self):
         for t in all_torch_types:

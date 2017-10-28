@@ -16,16 +16,16 @@ import embedding.util as util
 import embedding.evaluate as evaluate
 import embedding.tensor_type as tensor_type
 
+
 def main(argv=None):
 
     parser = argparse.ArgumentParser(description="Tools for embeddings.")
     subparser = parser.add_subparsers(dest="task")
 
     # Cooccurrence parser
-    cooccurrence_parser = subparser.add_parser("cooccurrence", help="Preprocessing (compute vocab and cooccurrence from text.")
+    cooccurrence_parser = subparser.add_parser("cooccurrence", help="Preprocessing (compute vocab and cooccurrence from text).")
 
-    cooccurrence_parser.add_argument("text", type=str, nargs="?", default="text",
-                                   help="filename of text file")
+    cooccurrence_parser.add_argument("text", type=str, nargs="?", default="text", help="filename of text file")
 
     # Compute parser
     compute_parser = subparser.add_parser("compute", help="Compute embedding from scratch via cooccurrence matrix.")
@@ -152,7 +152,7 @@ class Embedding(object):
         self.gpu = gpu
 
         # TODO: add warning for storage on gpu when computation is on gpu
-        # TODO: swap off storage if too much memory 
+        # TODO: swap off storage if too much memory
         if matgpu is None:
             matgpu = gpu
         if embedgpu is None:
@@ -249,7 +249,7 @@ class Embedding(object):
 
             wc = util.sum_rows(self.mat)
 
-            D = torch.sum(wc) # total dictionary size
+            D = torch.sum(wc)  # total dictionary size
 
             # TODO: pytorch doesn't seem to only allow indexing by 2D tensor
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
@@ -301,7 +301,7 @@ class Embedding(object):
                 prev.zeros_()
 
         if mode == "pi":
-            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu = gpu)
+            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu)
         elif mode == "alecton":
             self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "vr":

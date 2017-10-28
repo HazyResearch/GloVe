@@ -9,6 +9,7 @@ import argparse
 
 import embedding.tensor_type as tensor_type
 
+
 def synthetic(n, nnz):
     """This function generates a synthetic matrix."""
     begin = time.time()
@@ -28,6 +29,7 @@ def synthetic(n, nnz):
     print("Generating synthetic data:", end - begin)
 
     return cooccurrence, vocab, words
+
 
 def normalize(x, x0=None):
     # TODO: is it necessary to reorder columns by magnitude
@@ -64,6 +66,7 @@ def normalize(x, x0=None):
 
     return x, x0
 
+
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
@@ -71,6 +74,7 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 def mm(A, x, gpu=False):
 
@@ -85,11 +89,11 @@ def mm(A, x, gpu=False):
             return torch.mm(A, x)
         else:
 
-            if A.type() == "torch.sparse.FloatTensor" or \
-               A.type() == "torch.cuda.sparse.FloatTensor":
+            if (A.type() == "torch.sparse.FloatTensor" or
+                A.type() == "torch.cuda.sparse.FloatTensor"):
                 SparseTensor = torch.cuda.sparse.FloatTensor
-            elif A.type() == "torch.sparse.DoubleTensor" or \
-               A.type() == "torch.cuda.sparse.DoubleTensor":
+            elif (A.type() == "torch.sparse.DoubleTensor" or
+                  A.type() == "torch.cuda.sparse.DoubleTensor"):
                 SparseTensor = torch.cuda.sparse.DoubleTensor
             else:
                 raise NotImplementedError("Type of cooccurrence matrix (" + A.type() + ") is not recognized.")
@@ -152,12 +156,13 @@ def mm(A, x, gpu=False):
 
             return newx
 
+
 def sum_rows(A):
     n = A.shape[0]
     if A.is_cuda:
         ones = tensor_type.to_dense(A.type())(n, 1)
         ones.fill_(1)
-        return torch.mm(A, ones) # individual word counts
+        return torch.mm(A, ones)
     else:
         @numba.jit(nopython=True, cache=True)
         def sr(n, ind, val):
@@ -167,4 +172,3 @@ def sum_rows(A):
                 ans[ind[0, i]] += val[i]
             return ans
         return tensor_type.to_dense(A.type())(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
-
