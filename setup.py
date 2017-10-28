@@ -2,9 +2,11 @@
 
 from setuptools import setup, find_packages
 
+exec(open('embedding/__version__.py').read())
+
 setup(
     name="embedding",
-    version="0.0",
+    version=__version__,
     description="compute word embeddings",
     packages=find_packages(),
     install_requires=[

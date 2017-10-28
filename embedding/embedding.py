@@ -15,11 +15,19 @@ import embedding.solver as solver
 import embedding.util as util
 import embedding.evaluate as evaluate
 import embedding.tensor_type as tensor_type
+from embedding.__version__ import __version__
 
 
 def main(argv=None):
 
     parser = argparse.ArgumentParser(description="Tools for embeddings.")
+
+    # Add version to parser
+    parser.add_argument("-v", "--version",
+                        action='version',
+                        version="%(prog)s " + __version__,
+                        help="Print version number.")
+
     subparser = parser.add_subparsers(dest="task")
 
     # Cooccurrence parser
@@ -33,7 +41,7 @@ def main(argv=None):
     compute_parser.add_argument("-d", "--dim", type=int, default=50,
                                 help="dimension of embedding")
 
-    compute_parser.add_argument("-v", "--vocab", type=str, default="vocab.txt",
+    compute_parser.add_argument("--vocab", type=str, default="vocab.txt",
                                 help="filename of vocabulary file")
     compute_parser.add_argument("-c", "--cooccurrence", type=str, default="cooccurrence.shuf.bin",
                                 help="filename of cooccurrence binary")
