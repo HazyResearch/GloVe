@@ -2,10 +2,12 @@ from __future__ import print_function, absolute_import
 
 import torch
 import numba
-
 import numpy as np
 import time
 import sys
+import argparse
+
+import embedding.tensor_type as tensor_type
 
 def synthetic(n, nnz):
     """This function generates a synthetic matrix."""
@@ -99,8 +101,8 @@ def mm(A, x, gpu=False):
             values = A._values()
 
             # TODO: automate batch choice
-            A_batches = 100
-            x_batches = 10
+            A_batches = 35
+            x_batches = 5
             if A.is_cuda:
                 A_batches = 1
             if x.is_cuda:
@@ -150,17 +152,19 @@ def mm(A, x, gpu=False):
 
             return newx
 
-def sum_rows(A, GpuTensor):
+def sum_rows(A):
     n = A.shape[0]
     if A.is_cuda:
-        return torch.mm(A, torch.ones([n, 1]).type(GpuTensor)) # individual word counts
+        ones = tensor_type.to_dense(A.type())(n, 1)
+        ones.fill_(1)
+        return torch.mm(A, ones) # individual word counts
     else:
         @numba.jit(nopython=True, cache=True)
         def sr(n, ind, val):
             nnz = val.shape[0]
-            ans = np.zeros((n, 1), dtype=np.float32) # TODO: match type to gpu tensor
+            ans = np.zeros((n, 1), dtype=val.dtype)
             for i in range(nnz):
                 ans[ind[0, i]] += val[i]
             return ans
-        return torch.FloatTensor(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
+        return tensor_type.to_dense(A.type())(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
 

@@ -30,10 +30,12 @@ install:
 script:
   - pwd
   - find .
+  # python test/test_tensor_type_conversion.py
   - cd embedding/data/cooccurrence/wikipedia_sample
   - embedding compute
   - embedding evaluate
   - python -m embedding compute
   - python -m embedding evaluate
   - embedding compute --precision double
-  - embedding evaluate --precision double
+  - embedding evaluate
+
