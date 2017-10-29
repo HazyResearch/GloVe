@@ -50,16 +50,16 @@ def main(argv=None):
     compute_parser.add_argument("-o", "--vectors", type=str, default="vectors.txt",
                                 help="filename for embedding vectors output")
 
-    compute_parser.add_argument("-p", "--preprocessing", type=str, default="ppmi",
+    compute_parser.add_argument("-p", "--preprocessing", type=str.lower, default="ppmi",
                                 choices=["none", "log1p", "ppmi"],
                                 help="Preprocessing of cooccurrence matrix before eigenvector computation")
 
-    compute_parser.add_argument("-s", "--solver", type=str, default="pi",
-                                choices=["pi", "alecton", "vr", "sgd"],
+    compute_parser.add_argument("-s", "--solver", type=str.lower, default="pi",
+                                choices=["pi", "alecton", "vr", "sgd", "glove"],
                                 help="Solver used to find top eigenvectors")
     compute_parser.add_argument("-i", "--iterations", type=int, default=50,
                                 help="Iterations used by solver")
-    compute_parser.add_argument("-e", "--eta", type=float, default=1e-3,
+    compute_parser.add_argument("-e", "--eta", "--step", type=float, default=1e-3,
                                 help="Learning rate used by solver")
     compute_parser.add_argument("-m", "--momentum", type=float, default=0.,
                                 help="Momentum used by solver")
@@ -82,7 +82,7 @@ def main(argv=None):
     compute_parser.add_argument("--embedgpu", type=util.str2bool, default=None,
                                 help="Toggle to store embeddings on GPU")
 
-    compute_parser.add_argument("--precision", type=str, default="float",
+    compute_parser.add_argument("--precision", type=str.lower, default="float",
                                 choices=["float", "double"],
                                 help="Precision of values")
 
@@ -303,10 +303,9 @@ class Embedding(object):
         else:
             if self.embedding.is_cuda:
                 prev = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
-                prev.zeros_()
             else:
                 prev = self.CpuTensor(self.n, self.dim)
-                prev.zeros_()
+            prev.zero_()
 
         if mode == "pi":
             self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu)
@@ -316,6 +315,13 @@ class Embedding(object):
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
         elif mode == "sgd":
             self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
+        elif mode == "glove":
+            if self.embedding.is_cuda:
+                bias = tensor_type.to_gpu(self.CpuTensor)(self.n)
+            else:
+                bias = self.CpuTensor(self.n)
+            bias.zero_()
+            self.embedding, _ = solver.glove(self.mat, self.embedding, bias, iterations=iterations, eta=eta, batch=batch)
 
         self.scale(scale)
         if normalize:

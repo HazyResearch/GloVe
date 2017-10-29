@@ -132,3 +132,49 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
 
 def sgd(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
     raise NotImplementedError("SGD solver is not implemented yet.")
+
+
+def glove(mat, x, bias, iterations=50, eta=1e-3, batch=100000):
+    # NOTE: this does not include the context vector/bias
+    #       the word vector/bias is just used instead
+
+    xmax = 100
+    alpha = 0.75
+
+    nnz = mat._nnz()
+    n, dim = x.shape
+
+    for i in range(iterations):
+        begin = time.time()
+        total_cost = 0.
+        for start in range(0, nnz, batch):
+            end = min(start + batch, nnz)
+
+            X = mat._values()[start:end]
+
+            f = X / xmax
+            f.clamp(max=1)
+            # TODO alpha power
+
+            row = mat._indices()[0, start:end]
+            col = mat._indices()[1, start:end]
+            pred = (x[row, :] * x[col, :]).sum(1) + bias[row] + bias[col]
+            error = pred - torch.log(X)
+            step = eta * f * error
+
+            # TODO: writes are overwritten
+            # https://stackoverflow.com/questions/20656428/numpy-array-modifying-multiple-elements-at-once
+            # TODO: simultaneous update for row and col
+            x[row, :] -= step.expand(dim, end - start).t() * x[col, :]
+            x[col, :] -= step.expand(dim, end - start).t() * x[row, :]
+            bias[row] -= step
+            bias[col] -= step
+
+            total_cost += 0.5 * (f * error * error).sum()
+
+        end = time.time()
+        print("Iteration", i + 1, "took", end - begin)
+        print("Error:", total_cost / nnz)
+        sys.stdout.flush()
+
+    return x, bias
