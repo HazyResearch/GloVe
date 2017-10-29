@@ -214,10 +214,10 @@ class Embedding(object):
         print("nnz:", nnz)
         sys.stdout.flush()
 
-        dt = np.dtype([("ind", [("row", "<i4"), ("col", "<i4")]), ("val", "<d")])
-        dt = np.dtype([("row", "<i4"), ("col", "<i4"), ("val", "<d")])
+        dt = np.dtype([("ind", "2<i4"), ("val", "<d")])
+        # dt = np.dtype([("row", "<i4"), ("col", "<i4"), ("val", "<d")])
         data = np.fromfile(cooccurrence_file, dtype=dt)
-        ind = torch.IntTensor(np.array([data["row"], data["col"]])).type(torch.LongTensor) - 1
+        ind = torch.IntTensor(data["ind"].transpose()).type(torch.LongTensor) - 1
         val = self.CpuTensor(data["val"])
         cooccurrence = self.CpuSparseTensor(ind, val, torch.Size([n, n]))
         # TODO: coalescing is very slow, and the cooccurrence matrix is
