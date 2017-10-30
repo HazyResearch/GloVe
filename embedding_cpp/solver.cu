@@ -51,15 +51,21 @@ std::unique_ptr<double> power_iteration(const CSR<double> &cooccurrence,
   std::cout << cooccurrence.n << " " << cooccurrence.nnz << std::endl;
   std::cout << n_iterations << " " << n_dimensions << std::endl;
 
+  const auto iterations = timer::start_clock();
   for (size_t i = 0; i < n_iterations; i++) {
     const auto itr_timer = timer::start_clock();
     // C = α ∗ op(A) ∗ B + β ∗ C
     const double alpha = 1.0;
     const double beta = -1.0;
-    status = cusparseDcsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, cooccurrence.n,
+    std::cout << "nnz: " << cooccurrence.nnz << std::endl;
+    std::cout << "m: " << cooccurrence.n << std::endl;
+    std::cout << "n: " << n_dimensions << std::endl;
+    std::cout << "k: " << cooccurrence.n << std::endl;
+
+    status = cusparseDcsrmm2(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_TRANSPOSE, cooccurrence.n,
                    n_dimensions, cooccurrence.n, cooccurrence.nnz,
                    &alpha, descr, cuda_val, cuda_row_ptr,
-                   cuda_col_ind, embedding, cooccurrence.n,
+                   cuda_col_ind, embedding, n_dimensions,
                    &beta, x, cooccurrence.n);
     if (status != CUSPARSE_STATUS_SUCCESS) {
       std::cout << "ERROR: Matrix-matrix multiplication failed" << std::endl;
@@ -69,6 +75,8 @@ std::unique_ptr<double> power_iteration(const CSR<double> &cooccurrence,
     cudaDeviceSynchronize();
     timer::stop_clock("ITERATION " + std::to_string(i), itr_timer);
   }
+
+  timer::stop_clock("ITERATIONS",iterations);
 
   const auto cuda_free = timer::start_clock();
   cudaFree(cuda_val);
