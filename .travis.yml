@@ -36,6 +36,9 @@ script:
   - embedding evaluate
   - python -m embedding compute
   - python -m embedding evaluate
+  - embedding compute --precision float
+  - embedding evaluate
   - embedding compute --precision double
   - embedding evaluate
-
+  - embedding compute --momentum 1.2
+  - embedding evaluate

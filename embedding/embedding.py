@@ -61,7 +61,7 @@ def main(argv=None):
                                 help="Iterations used by solver")
     compute_parser.add_argument("-e", "--eta", "--step", type=float, default=1e-3,
                                 help="Learning rate used by solver")
-    compute_parser.add_argument("-m", "--momentum", type=float, default=0.,
+    compute_parser.add_argument("-m", "--momentum", "--beta", type=float, default=0.,
                                 help="Momentum used by solver")
     compute_parser.add_argument("-f", "--normfreq", type=int, default=1,
                                 help="Normalization frequency used by solver")
