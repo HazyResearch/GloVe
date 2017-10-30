@@ -231,7 +231,7 @@ class Embedding(object):
             # verify that the vectors have a matching dim
             with open(initial_vectors, "r") as f:
                 if self.embedgpu:
-                    vectors = tensor_type.toCpu(self.CpuTensor)([[float(v) for v in line.split()[1:]] for line in f])
+                    vectors = tensor_type.to_gpu(self.CpuTensor)([[float(v) for v in line.split()[1:]] for line in f])
                 else:
                     vectors = self.CpuTensor([[float(v) for v in line.split()[1:]] for line in f])
 
@@ -315,7 +315,7 @@ class Embedding(object):
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
         elif mode == "sgd":
             self.normalize_embeddings()
-            self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
+            self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, batch=batch)
         elif mode == "glove":
             # TODO: fix defaults
             # esp preprocessing = none
