@@ -134,24 +134,8 @@ def sgd(mat, x, iterations=50, eta=1e-3, batch=100000):
     # TODO: this does not do any negative sampling
     # TODO: does this need norm_freq
 
-    xmax = 100
-    alpha = 0.75
-
     nnz = mat._nnz()
     n, dim = x.shape
-
-    # TODO: should bias be CPU or GPU
-    if True:
-        begin = time.time()
-        f_mat = mat.clone()
-        f_mat._values().div_(xmax).clamp_(max=1)
-        # TODO: alpha power
-
-        log_mat = mat.clone()
-        log_mat._values().log_()
-
-        log_mat._values().mul_(f_mat._values())
-        bias = util.sum_rows(log_mat) / util.sum_rows(f_mat) / 2
 
     for i in range(iterations):
         begin = time.time()
@@ -161,21 +145,17 @@ def sgd(mat, x, iterations=50, eta=1e-3, batch=100000):
 
             X = mat._values()[start:end]
 
-            f = X / xmax
-            f.clamp_(max=1)
-
             row = mat._indices()[0, start:end]
             col = mat._indices()[1, start:end]
 
-            pred = (x[row, :] * x[col, :]).sum(1) + bias[row] + bias[col]
+            pred = (x[row, :] * x[col, :]).sum(1)
             error = pred - torch.log(X)
-            step = -eta * f * error
+            step = -eta * error
 
             dx = step.expand(dim, end - start).t().repeat(2, 1) * x[torch.cat([col, row]), :]
             x.index_add_(0, torch.cat([row, col]), dx)
-            bias.index_add_(0, torch.cat([row, col]), torch.cat([step, step]))
 
-            total_cost += 0.5 * (f * error * error).sum()
+            total_cost += 0.5 * (error * error).sum()
             print("Iteration", i + 1, "\t", start // batch + 1, "/", (nnz + batch - 1) // batch, "\t", time.time() - begin, end="\r")
 
         print("Iteration", i + 1, "took", time.time() - begin)
