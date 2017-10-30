@@ -131,6 +131,37 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
 
 
 def sgd(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
+    # TODO: this does not do any negative sampling
+    # TODO: does this need norm_freq
+    nnz = mat._nnz()
+    n, dim = x.shape
+
+    for i in range(iterations):
+        begin = time.time()
+        total_cost = 0.
+        for start in range(0, nnz, batch):
+            end = min(start + batch, nnz)
+
+            X = mat._values()[start:end]
+
+            row = mat._indices()[0, start:end]
+            col = mat._indices()[1, start:end]
+
+            pred = (x[row, :] * x[col, :]).sum(1)
+            error = pred - torch.log(X)
+            step = -eta * error
+
+            dx = step.expand(dim, end - start).t().repeat(2, 1) * x[torch.cat([col, row]), :]
+            x.index_add_(0, torch.cat([row, col]), dx)
+
+            total_cost += 0.5 * (error * error).sum()
+            print("Iteration", i + 1, "\t", start // batch + 1, "/", (nnz + batch - 1) // batch, "\t", time.time() - begin, end="\r")
+
+        print("Iteration", i + 1, "took", time.time() - begin)
+        print("Error:", total_cost / nnz)
+        sys.stdout.flush()
+
+    return x
     raise NotImplementedError("SGD solver is not implemented yet.")
 
 

@@ -314,11 +314,13 @@ class Embedding(object):
         elif mode == "vr":
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
         elif mode == "sgd":
+            self.normalize_embeddings()
             self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "glove":
             # TODO: fix defaults
             # esp preprocessing = none
             # scale = 0
+            self.normalize_embeddings()
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
             self.embedding, _    = solver.glove(self.mat, self.embedding, bias=bias, iterations=1, eta=0, batch=batch)
 
