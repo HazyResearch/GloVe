@@ -1,9 +1,14 @@
 from __future__ import print_function, absolute_import
 
 import torch
+import numba
 import numpy as np
 import time
 import sys
+import argparse
+
+import embedding.tensor_type as tensor_type
+
 
 def synthetic(n, nnz):
     """This function generates a synthetic matrix."""
@@ -25,15 +30,23 @@ def synthetic(n, nnz):
 
     return cooccurrence, vocab, words
 
+
 def normalize(x, x0=None):
     # TODO: is it necessary to reorder columns by magnitude
     # TODO: more numerically stable implementation?
     begin = time.time()
     norm = torch.norm(x, 2, 0, True).squeeze()
-    dim, = norm.shape
-    print("\n" + " ".join(["{:10.2f}".format(n) for n in norm]))
+    print(" ".join(["{:10.2f}".format(n) for n in norm]))
     sys.stdout.flush()
-    temp, r = torch.qr(x)
+    try:
+        temp, r = torch.qr(x)
+    except RuntimeError as e:
+        print("ERROR: QR decomposition has run into a problem")
+        print("Older versions of pytoch had a memory leak in QR:")
+        print("    https://github.com/pytorch/pytorch/issues/3009")
+        print("Updating pytorch may fix this issue.")
+        sys.stdout.flush()
+        raise e
     if np.isnan(torch.sum(temp)):
         # qr seems to occassionally be unstable and result in nan
         print("WARNING: QR decomposition resulted in NaNs")
@@ -53,6 +66,7 @@ def normalize(x, x0=None):
 
     return x, x0
 
+
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
@@ -60,3 +74,101 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
+def mm(A, x, gpu=False):
+
+    if not (A.is_cuda or x.is_cuda or gpu):
+        # Data and computation on CPU
+        return torch.mm(A, x)
+    else:
+        # Compute on GPU, regardless of where data is
+        if A.is_cuda and x.is_cuda:
+            # Everything on GPU anyways, just multiply normally
+            # TODO: workaround for pytorch memory leak
+            return torch.mm(A, x)
+        else:
+
+            if (A.type() == "torch.sparse.FloatTensor" or
+                A.type() == "torch.cuda.sparse.FloatTensor"):
+                SparseTensor = torch.cuda.sparse.FloatTensor
+            elif (A.type() == "torch.sparse.DoubleTensor" or
+                  A.type() == "torch.cuda.sparse.DoubleTensor"):
+                SparseTensor = torch.cuda.sparse.DoubleTensor
+            else:
+                raise NotImplementedError("Type of cooccurrence matrix (" + A.type() + ") is not recognized.")
+
+            n, dim = x.shape
+            nnz = A._nnz()
+
+            indices = A._indices().t()
+            values = A._values()
+
+            # TODO: automate batch choice
+            A_batches = 35
+            x_batches = 5
+            if A.is_cuda:
+                A_batches = 1
+            if x.is_cuda:
+                x_batches = 1
+            newx = 0 * x
+            for i in range(A_batches):
+                if A.is_cuda:
+                    sample = A
+                else:
+                    start = i * nnz // A_batches
+                    end = (i + 1) * nnz // A_batches
+
+                    ind = indices[start:end, :]
+                    val = values[start:end]
+
+                    # TODO: resort to sync transfer if needed
+                    try:
+                        ind = ind.cuda(async=True)
+                        val = val.cuda(async=True)
+                    except RuntimeError as e:
+                        # print("WARNING: async transfer failed")
+                        ind = ind.cuda()
+                        val = val.cuda()
+
+                    sample = SparseTensor(ind.t(), val, torch.Size([n, n]))
+
+                for j in range(x_batches):
+                    print(i, "/", A_batches, "\t", j, "/", x_batches, end="\r")
+                    sys.stdout.flush()
+
+                    if x.is_cuda:
+                        newx = newx.addmm(sample, x)
+                    else:
+                        start = j * dim // x_batches
+                        end = (j + 1) * dim // x_batches
+
+                        cols = x[:, start:end]
+
+                        try:
+                            cols = cols.cuda(async=True)
+                        except RuntimeError as e:
+                            # print("WARNING: async transfer failed")
+                            cols = cols.cuda()
+
+                        cols = torch.mm(sample, cols).cpu()
+                        newx[:, start:end] += cols
+
+            return newx
+
+
+def sum_rows(A):
+    n = A.shape[0]
+    if A.is_cuda:
+        ones = tensor_type.to_dense(A.type())(n, 1)
+        ones.fill_(1)
+        return torch.mm(A, ones).squeeze(1)
+    else:
+        @numba.jit(nopython=True, cache=True)
+        def sr(n, ind, val):
+            nnz = val.shape[0]
+            ans = np.zeros((n, 1), dtype=val.dtype)
+            for i in range(nnz):
+                ans[ind[0, i]] += val[i]
+            return ans
+        return tensor_type.to_dense(A.type())(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
