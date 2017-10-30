@@ -37,26 +37,27 @@ int main(void) {
   }
   */
   double D  = 0.0;
-  double* wc = (double*)malloc(csr_cooccurrence.n*sizeof(double));
-  double* wc0 = (double*)malloc(csr_cooccurrence.nnz*sizeof(double));
+  double* wc = (double*)malloc(csr_cooccurrence.n * sizeof(double));
+  double* wc0 = (double*)malloc(csr_cooccurrence.nnz * sizeof(double));
   #pragma omp parallel for reduction(+ : D)
-  for(size_t row = 0; row < csr_cooccurrence.n; ++row){
+  for (size_t row = 0; row < csr_cooccurrence.n; ++row) {
     double sum = 0.0;
-    for(size_t colidx = csr_cooccurrence.rowPtr[row]; colidx < csr_cooccurrence.rowPtr[row+1]; ++colidx){
-      //std::cout << row << " " << csr_cooccurrence.colInd[colidx] << " " << csr_cooccurrence.val[colidx] << std::endl;
+    for (size_t colidx = csr_cooccurrence.rowPtr[row];
+         colidx < csr_cooccurrence.rowPtr[row + 1]; ++colidx) {
       sum += csr_cooccurrence.val[colidx];
     }
     D += sum;
     wc[row] = sum;
   }
 
-  double* wc1 = (double*)malloc(csr_cooccurrence.nnz*sizeof(double));
-  double* D_vals = (double*)malloc(csr_cooccurrence.nnz*sizeof(double));
+  double* wc1 = (double*)malloc(csr_cooccurrence.nnz * sizeof(double));
+  double* D_vals = (double*)malloc(csr_cooccurrence.nnz * sizeof(double));
   size_t i = 0;
-  for(size_t row = 0; row < csr_cooccurrence.n; ++row){
-    for(size_t colidx = csr_cooccurrence.rowPtr[row]; colidx < csr_cooccurrence.rowPtr[row+1]; ++colidx){
-      wc0[i]= wc[row];
-      wc1[i] = wc[csr_cooccurrence.colInd[colidx]]; 
+  for (size_t row = 0; row < csr_cooccurrence.n; ++row) {
+    for (size_t colidx = csr_cooccurrence.rowPtr[row];
+         colidx < csr_cooccurrence.rowPtr[row + 1]; ++colidx) {
+      wc0[i] = wc[row];
+      wc1[i] = wc[csr_cooccurrence.colInd[colidx]];
       D_vals[i++] = D;
     }
   }
