@@ -162,7 +162,7 @@ def sum_rows(A):
     if A.is_cuda:
         ones = tensor_type.to_dense(A.type())(n, 1)
         ones.fill_(1)
-        return torch.mm(A, ones)
+        return torch.mm(A, ones).squeeze(1)
     else:
         @numba.jit(nopython=True, cache=True)
         def sr(n, ind, val):

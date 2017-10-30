@@ -134,7 +134,7 @@ def sgd(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
     raise NotImplementedError("SGD solver is not implemented yet.")
 
 
-def glove(mat, x, bias, iterations=50, eta=1e-3, batch=100000):
+def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
     # NOTE: this does not include the context vector/bias
     #       the word vector/bias is just used instead
 
@@ -143,6 +143,22 @@ def glove(mat, x, bias, iterations=50, eta=1e-3, batch=100000):
 
     nnz = mat._nnz()
     n, dim = x.shape
+
+    # TODO: should bias be CPU or GPU
+    if bias is None:
+        begin = time.time()
+        f_mat = mat.clone()
+        f_mat._values().div_(xmax).clamp_(max=1)
+        # TODO: alpha power
+
+        log_mat = mat.clone()
+        log_mat._values().log_()
+
+        log_mat._values().mul_(f_mat._values())
+        bias = util.sum_rows(log_mat) / util.sum_rows(f_mat) / 2
+
+        # bias = torch.cuda.FloatTensor(n)
+        # bias.zero_()
 
     for i in range(iterations):
         begin = time.time()
@@ -158,22 +174,19 @@ def glove(mat, x, bias, iterations=50, eta=1e-3, batch=100000):
 
             row = mat._indices()[0, start:end]
             col = mat._indices()[1, start:end]
+
             pred = (x[row, :] * x[col, :]).sum(1) + bias[row] + bias[col]
             error = pred - torch.log(X)
-            step = eta * f * error
+            step = -eta * f * error
 
-            # TODO: writes are overwritten
-            # https://stackoverflow.com/questions/20656428/numpy-array-modifying-multiple-elements-at-once
-            # TODO: simultaneous update for row and col
-            x[row, :] -= step.expand(dim, end - start).t() * x[col, :]
-            x[col, :] -= step.expand(dim, end - start).t() * x[row, :]
-            bias[row] -= step
-            bias[col] -= step
+            dx = step.expand(dim, end - start).t().repeat(2, 1) * x[torch.cat([col, row]), :]
+            x.index_add_(0, torch.cat([row, col]), dx)
+            # bias.index_add_(0, torch.cat([row, col]), torch.cat([step, step]))
 
             total_cost += 0.5 * (f * error * error).sum()
+            print("Iteration", i + 1, "\t", start // batch + 1, "/", (nnz + batch - 1) // batch, "\t", time.time() - begin, end="\r")
 
-        end = time.time()
-        print("Iteration", i + 1, "took", end - begin)
+        print("Iteration", i + 1, "took", time.time() - begin)
         print("Error:", total_cost / nnz)
         sys.stdout.flush()
 

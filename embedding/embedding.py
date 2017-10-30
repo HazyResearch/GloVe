@@ -316,16 +316,16 @@ class Embedding(object):
         elif mode == "sgd":
             self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "glove":
-            if self.embedding.is_cuda:
-                bias = tensor_type.to_gpu(self.CpuTensor)(self.n)
-            else:
-                bias = self.CpuTensor(self.n)
-            bias.zero_()
-            self.embedding, _ = solver.glove(self.mat, self.embedding, bias, iterations=iterations, eta=eta, batch=batch)
+            # TODO: fix defaults
+            # esp preprocessing = none
+            # scale = 0
+            self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
+            self.embedding, _    = solver.glove(self.mat, self.embedding, bias=bias, iterations=1, eta=0, batch=batch)
 
-        self.scale(scale)
-        if normalize:
-            self.normalize_embeddings()
+
+        # self.scale(scale)
+        # if normalize:
+        #     self.normalize_embeddings()
 
         if self.embedding.is_cuda:
             begin = time.time()
@@ -335,18 +335,19 @@ class Embedding(object):
             sys.stdout.flush()
 
     def scale(self, p=1.):
-        # TODO: Assumes that matrix is normalized.
-        begin = time.time()
+        if p != 0:
+            # TODO: Assumes that matrix is normalized.
+            begin = time.time()
 
-        # TODO: faster estimation of eigenvalues?
-        temp = util.mm(self.mat, self.embedding, self.gpu)
-        norm = torch.norm(temp, 2, 0, True)
+            # TODO: faster estimation of eigenvalues?
+            temp = util.mm(self.mat, self.embedding, self.gpu)
+            norm = torch.norm(temp, 2, 0, True)
 
-        norm = norm.pow(p)
-        self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
-        end = time.time()
-        print("Final scaling:", end - begin)
-        sys.stdout.flush()
+            norm = norm.pow(p)
+            self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
+            end = time.time()
+            print("Final scaling:", end - begin)
+            sys.stdout.flush()
 
     def normalize_embeddings(self):
         norm = torch.norm(self.embedding, 2, 1, True)
