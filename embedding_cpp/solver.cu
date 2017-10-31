@@ -3,9 +3,9 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include "timer.h"
-
+#include "utils.h"
 namespace solver {
-std::unique_ptr<double> power_iteration(const CSR<double> &cooccurrence,
+std::unique_ptr<double> gpu_power_iteration(const CSR<double> &cooccurrence,
                                         const size_t n_iterations,
                                         const size_t n_dimensions) {
   auto cuda_init = timer::start_clock();
@@ -73,6 +73,8 @@ std::unique_ptr<double> power_iteration(const CSR<double> &cooccurrence,
       return std::unique_ptr<double>();
     }  
     cudaDeviceSynchronize();
+    //utils::normalize_gpu(embedding, 3, 3);
+
     timer::stop_clock("ITERATION " + std::to_string(i), itr_timer);
   }
 
