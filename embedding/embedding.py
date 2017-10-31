@@ -212,7 +212,7 @@ class Embedding(object):
         # almost always coalesced, but this might not be safe
         # cooccurrence = cooccurrence.coalesce()
         end = time.time()
-        print("Loading data took", end - begin)
+        print("Loading cooccurrence matrix took", end - begin)
         sys.stdout.flush()
 
         if initial_vectors is None:
@@ -229,11 +229,13 @@ class Embedding(object):
         else:
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
+            begin = time.time()
             with open(initial_vectors, "r") as f:
                 if self.embedgpu:
                     vectors = tensor_type.to_gpu(self.CpuTensor)([[float(v) for v in line.split()[1:]] for line in f])
                 else:
                     vectors = self.CpuTensor([[float(v) for v in line.split()[1:]] for line in f])
+            print("Loading initial vectors took", end - begin)
 
         if self.gpu and not self.embedgpu:
             vectors = vectors.pin_memory()
@@ -322,8 +324,6 @@ class Embedding(object):
             # scale = 0
             self.normalize_embeddings()
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
-            self.embedding, _    = solver.glove(self.mat, self.embedding, bias=bias, iterations=1, eta=0, batch=batch)
-
 
         # self.scale(scale)
         # if normalize:
