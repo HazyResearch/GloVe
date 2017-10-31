@@ -325,9 +325,9 @@ class Embedding(object):
             self.normalize_embeddings()
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
 
-        # self.scale(scale)
-        # if normalize:
-        #     self.normalize_embeddings()
+        self.scale(scale)
+        if normalize:
+            self.normalize_embeddings()
 
         if self.embedding.is_cuda:
             begin = time.time()
