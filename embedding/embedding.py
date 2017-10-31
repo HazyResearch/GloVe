@@ -10,6 +10,8 @@ import sys
 import subprocess
 import math
 import logging
+import pandas
+import collections
 
 import embedding.solver as solver
 import embedding.util as util
@@ -108,6 +110,12 @@ def main(argv=None):
             print("         Toggling off GPU use.")
             sys.stdout.flush()
             args.gpu = False
+
+        if args.solver == "glove" and args.preprocessing != "none":
+            print("WARNING: GloVe only behaves properly with no preprocessing.")
+            print("         Turning off preprocessing.")
+            sys.stdout.flush()
+            args.preprocessing = None
 
         CpuTensor = torch.FloatTensor
         if args.precision == "float":
@@ -222,8 +230,7 @@ class Embedding(object):
             else:
                 vectors = self.CpuTensor(n, self.dim)
             vectors.random_(2)
-            end = time.time()
-            print("Random initialization took ", end - begin)
+            print("Random initialization took ", time.time() - begin)
             sys.stdout.flush()
             vectors, _ = util.normalize(vectors)
         else:
@@ -231,11 +238,16 @@ class Embedding(object):
             # verify that the vectors have a matching dim
             begin = time.time()
             with open(initial_vectors, "r") as f:
+                # TODO: select proper precision
+                dtype = collections.defaultdict(np.float64)
+                dtype[0] = str
+                vectors = pandas.read_csv("vectors.txt", sep=" ", header=None, dtype=dtype).values[:, 1:]
                 if self.embedgpu:
-                    vectors = tensor_type.to_gpu(self.CpuTensor)([[float(v) for v in line.split()[1:]] for line in f])
+                    vectors = tensor_type.to_gpu(self.CpuTensor)(vectors)
                 else:
-                    vectors = self.CpuTensor([[float(v) for v in line.split()[1:]] for line in f])
-            print("Loading initial vectors took", end - begin)
+                    vectors = self.CpuTensor(vectors)
+            print("Loading initial vectors took", time.time() - begin)
+            sys.stdout.flush()
 
         if self.gpu and not self.embedgpu:
             vectors = vectors.pin_memory()
@@ -320,7 +332,6 @@ class Embedding(object):
             self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, batch=batch)
         elif mode == "glove":
             # TODO: fix defaults
-            # esp preprocessing = none
             # scale = 0
             self.normalize_embeddings()
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
