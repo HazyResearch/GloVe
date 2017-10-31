@@ -13,6 +13,7 @@ setup(
         "torch",
         "numba",
         "scipy"
+        "pandas"
     ],
     entry_points={
         "console_scripts": [
