@@ -188,9 +188,34 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
 
         log_mat._values().mul_(f_mat._values())
         bias = util.sum_rows(log_mat) / util.sum_rows(f_mat) / 2
+        print("Initial bias took", time.time() - begin)
 
         # bias = torch.cuda.FloatTensor(n)
         # bias.zero_()
+        for i in range(100):
+            begin = time.time()
+            total_cost = 0.
+            for start in range(0, nnz, batch):
+                end = min(start + batch, nnz)
+
+                X = mat._values()[start:end]
+
+                f = X / xmax
+                f.clamp(max=1)
+                # TODO alpha power
+
+                row = mat._indices()[0, start:end]
+                col = mat._indices()[1, start:end]
+
+                pred = bias[row] + bias[col]
+                error = pred - torch.log(X)
+                step = -0.001 * f * error
+
+                bias.index_add_(0, torch.cat([row, col]), torch.cat([step, step]))
+
+                total_cost += 0.5 * (f * error * error).sum()
+                print("Tune bias ", i + 1, "\t", start // batch + 1, "/", (nnz + batch - 1) // batch, "\t", time.time() - begin, end="\r")
+            print("Error:", total_cost / nnz)
 
     for i in range(iterations):
         begin = time.time()
