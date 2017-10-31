@@ -12,7 +12,7 @@ setup(
     install_requires=[
         "torch",
         "numba",
-        "scipy"
+        "scipy",
         "pandas"
     ],
     entry_points={
