@@ -44,5 +44,5 @@ script:
   - embedding evaluate
   - embedding compute --solver sgd --scale 0
   - embedding evaluate
-  - embedding compute --solver glove --preprocessing none --scale 0
+  - embedding compute --solver glove --preprocessing none --scale 0 --batch 1000
   - embedding evaluate
