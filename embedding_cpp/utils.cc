@@ -1,10 +1,10 @@
 #include "utils.h"
-#include <memory>
 #include <cstring>
+#include <memory>
+#include <fstream>
 
 namespace {
-void qr(double* const _Q, double* const _A, const size_t _m,
-        const size_t _n) {
+void qr(double* const _Q, double* const _A, const size_t _m, const size_t _n) {
   // Maximal rank is used by Lapacke
   const size_t rank = std::min(_m, _n);
 
@@ -38,7 +38,6 @@ void qr(double* const _Q, double* const _A, const size_t _m,
   }
 }
 }
-
 
 namespace utils {
 
@@ -92,8 +91,8 @@ void preprocess_cpu(CSR<double>& csr_cooccurrence) {
   vdSub(csr_cooccurrence.nnz, csr_cooccurrence.val, wc0, csr_cooccurrence.val);
   vdSub(csr_cooccurrence.nnz, csr_cooccurrence.val, wc1, csr_cooccurrence.val);
 
-  // clamp(min=0)
-  #pragma omp parallel for
+// clamp(min=0)
+#pragma omp parallel for
   for (size_t row = 0; row < csr_cooccurrence.n; ++row) {
     double sum = 0.0;
     for (size_t colidx = csr_cooccurrence.rowPtr[row];
@@ -114,16 +113,75 @@ void preprocess_cpu(CSR<double>& csr_cooccurrence) {
   */
 }
 
-void normalize_cpu(double* x, const size_t num_rows, const size_t num_cols){
+void normalize_cpu(double* x, const size_t num_rows, const size_t num_cols) {
   for (size_t i = 0; i < num_cols; i++) {
-    std::cout << cblas_dnrm2(num_rows, &x[i], num_cols)
-              << " ";
-    // std::cout << i << " " << embedding[i] << std::endl;
+    std::cout << cblas_dnrm2(num_rows, &x[i], num_cols) << " ";
   }
   std::cout << std::endl;
   qr(x, x, num_rows, num_cols);
+  /*
   for(size_t i = 0; i < 5; i++){
     std::cout << x[i] << std::endl;
+  }*/
+}
+
+std::vector<std::string> load_vocab(const std::string& filepath) {
+  FILE* pFile;
+  long lSize;
+  char* buffer;
+  size_t result;
+
+  pFile = fopen(filepath.c_str(), "rb");
+  if (pFile == NULL) {
+    fputs("File error", stderr);
+    exit(1);
+  }
+
+  // obtain file size:
+  fseek(pFile, 0, SEEK_END);
+  lSize = ftell(pFile);
+  rewind(pFile);
+
+  // allocate memory to contain the whole file:
+  buffer = (char*)malloc(sizeof(char) * lSize);
+  if (buffer == NULL) {
+    fputs("Memory error", stderr);
+    exit(2);
+  }
+
+  // copy the file into the buffer:
+  result = fread(buffer, 1, lSize, pFile);
+  if (result != lSize) {
+    fputs("Reading error", stderr);
+    exit(3);
+  }
+
+  std::vector<std::string> vocab;
+  char* pch = strtok(buffer, " \n");
+  while (pch != NULL) {
+    vocab.push_back(pch);
+    pch = strtok(NULL, " \n");
+
+    pch = strtok(NULL, " \n");
+  }
+
+  // terminate
+  fclose(pFile);
+  free(buffer);
+  return vocab;
+}
+
+void save_to_file(const double * const matrix, const size_t m, const size_t n,
+                  const std::vector<std::string>& vocab,
+                  const std::string& filename) {
+  std::ofstream myfile;
+  myfile.open(filename);
+  for (size_t i = 0; i < m; ++i) {
+    myfile << vocab.at(i) << " ";
+    for (size_t j = 0; j < n; ++j) {
+      myfile << matrix[i * n + j] << " ";
+    }
+    myfile << "\n";
   }
 }
 }

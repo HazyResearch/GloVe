@@ -35,7 +35,7 @@ std::unique_ptr<double> cpu_power_iteration(const CSR<double> &cooccurrence,
     embedding = tmp;
 
     memset(embedding, 0, cooccurrence.n * n_dimensions * sizeof(double));
-    //#pragma omp parallel for schedule(dynamic) num_threads(48)
+    #pragma omp parallel for schedule(dynamic) num_threads(48)
     for (size_t row = 0; row < cooccurrence.n; ++row) {
       for (size_t colidx = cooccurrence.rowPtr[row];
            colidx < cooccurrence.rowPtr[row + 1]; ++colidx) {
