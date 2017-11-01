@@ -115,7 +115,7 @@ def main(argv=None):
             print("WARNING: GloVe only behaves properly with no preprocessing.")
             print("         Turning off preprocessing.")
             sys.stdout.flush()
-            args.preprocessing = None
+            args.preprocessing = "none"
 
         CpuTensor = torch.FloatTensor
         if args.precision == "float":
@@ -225,6 +225,7 @@ class Embedding(object):
 
         if initial_vectors is None:
             begin = time.time()
+            # TODO: this initialization is really bad for sgd and glove
             if self.embedgpu:
                 vectors = tensor_type.to_gpu(self.CpuTensor)(n, self.dim)
             else:
@@ -237,15 +238,14 @@ class Embedding(object):
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
             begin = time.time()
-            with open(initial_vectors, "r") as f:
-                # TODO: select proper precision
-                dtype = collections.defaultdict(np.float64)
-                dtype[0] = str
-                vectors = pandas.read_csv("vectors.txt", sep=" ", header=None, dtype=dtype).values[:, 1:]
-                if self.embedgpu:
-                    vectors = tensor_type.to_gpu(self.CpuTensor)(vectors)
-                else:
-                    vectors = self.CpuTensor(vectors)
+            # TODO: select proper precision
+            dtype = collections.defaultdict(lambda: self.CpuTensor().numpy().dtype)
+            dtype[0] = str
+            vectors = pandas.read_csv(initial_vectors, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
+            if self.embedgpu:
+                vectors = tensor_type.to_gpu(self.CpuTensor)(vectors)
+            else:
+                vectors = self.CpuTensor(vectors)
             print("Loading initial vectors took", time.time() - begin)
             sys.stdout.flush()
 
@@ -328,12 +328,10 @@ class Embedding(object):
         elif mode == "vr":
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
         elif mode == "sgd":
-            self.normalize_embeddings()
             self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, batch=batch)
         elif mode == "glove":
             # TODO: fix defaults
             # scale = 0
-            self.normalize_embeddings()
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
 
         self.scale(scale)
