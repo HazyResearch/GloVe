@@ -300,13 +300,6 @@ class Embedding(object):
             else:
                 self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
 
-        # TODO: how slow is pinning?
-        # begin = time.time()
-        # indices = indices.t().pin_memory()
-        # values = values.pin_memory()
-        # torch.cuda.synchronize()
-        # print("Pinning Memory:", time.time() - begin)
-
         end = time.time()
         print("Preprocessing took", end - begin)
         sys.stdout.flush()
