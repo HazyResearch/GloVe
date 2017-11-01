@@ -37,6 +37,13 @@ def normalize(x, x0=None):
     begin = time.time()
     norm = torch.norm(x, 2, 0, True).squeeze()
     print(" ".join(["{:10.2f}".format(n) for n in norm]))
+    a = time.time()
+    _, perm = torch.sort(-norm)
+    norm = norm[perm]
+    x = x[:, perm]
+    if x0 is not None:
+        x0 = x0[:, perm]
+    print("Permute time:", time.time() - a)
     sys.stdout.flush()
     try:
         temp, r = torch.qr(x)
