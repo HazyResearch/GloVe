@@ -183,8 +183,7 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
     if bias is None:
         begin = time.time()
         f_mat = mat.clone()
-        f_mat._values().div_(xmax).clamp_(max=1)
-        f.pow_(alpha)
+        f_mat._values().div_(xmax).clamp_(max=1).pow_(alpha)
 
         log_mat = mat.clone()
         log_mat._values().log_()
