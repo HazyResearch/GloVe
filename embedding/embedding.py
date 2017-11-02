@@ -274,7 +274,7 @@ class Embedding(object):
             # TODO: select proper precision
             dtype = collections.defaultdict(lambda: self.CpuTensor().numpy().dtype)
             dtype[0] = str
-            self.bias = pandas.read_csv(initial_vectors, sep=" ", header=None, dtype=dtype).iloc[:, 1].as_matrix()
+            self.bias = pandas.read_csv(initial_bias, sep=" ", header=None, dtype=dtype).iloc[:, 1].as_matrix()
             if self.embedgpu: # TODO: own flag?
                 self.bias = tensor_type.to_gpu(self.CpuTensor)(self.bias)
             else:
