@@ -13,7 +13,9 @@ setup(
         "torch",
         "numba",
         "scipy",
-        "pandas"
+        "pandas",
+        "sparsesvd",
+        "gensim"
     ],
     entry_points={
         "console_scripts": [
