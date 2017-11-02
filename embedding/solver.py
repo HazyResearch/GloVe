@@ -268,5 +268,5 @@ def sparseSVD(mat, dim):
     print("Solving took", time.time() - begin)
     sys.stdout.flush()
 
-    return u
-
+    # TODO fix precision
+    return torch.FloatTensor(u.transpose())
