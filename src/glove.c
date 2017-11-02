@@ -178,7 +178,7 @@ int save_params(int nb_iter) {
     char format[20];
     char output_file[MAX_STRING_LENGTH], output_file_gsq[MAX_STRING_LENGTH];
     char *word = malloc(sizeof(char) * MAX_STRING_LENGTH + 1);
-    FILE *fid, *fout, *fgs;
+    FILE *fid, *fout, *fbias, *fgs;
     
     if (use_binary > 0) { // Save parameters in binary file
         if (nb_iter <= 0)
@@ -218,6 +218,8 @@ int save_params(int nb_iter) {
         }
         fout = fopen(output_file,"wb");
         if (fout == NULL) {fprintf(stderr, "Unable to open file %s.\n",save_W_file); return 1;}
+        fbias = fopen("bias.txt","wb");
+        if (fbias == NULL) {fprintf(stderr, "Unable to open file bias.txt.\n"); return 1;}
         fid = fopen(vocab_file, "r");
         sprintf(format,"%%%ds",MAX_STRING_LENGTH);
         if (fid == NULL) {fprintf(stderr, "Unable to open file %s.\n",vocab_file); return 1;}
@@ -226,6 +228,11 @@ int save_params(int nb_iter) {
             if (fscanf(fid,format,word) == 0) return 1;
             // input vocab cannot contain special <unk> keyword
             if (strcmp(word, "<unk>") == 0) return 1;
+
+            fprintf(fbias, "%s",word);
+            fprintf(fbias," %lf", W[a * (vector_size + 1) + vector_size]);
+            fprintf(fbias,"\n");
+
             fprintf(fout, "%s",word);
             if (model == 0) { // Save all parameters (including bias)
                 for (b = 0; b < (vector_size + 1); b++) fprintf(fout," %lf", W[a * (vector_size + 1) + b]);
@@ -276,6 +283,7 @@ int save_params(int nb_iter) {
 
         fclose(fid);
         fclose(fout);
+        fclose(fbias);
         if (save_gradsq > 0) fclose(fgs);
     }
     return 0;
