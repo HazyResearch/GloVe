@@ -281,6 +281,8 @@ class Embedding(object):
                 self.bias = self.CpuTensor(self.bias)
             print("Loading initial biases took", time.time() - begin)
             sys.stdout.flush()
+        else:
+            self.bias = None
 
         self.load(cooccurrence, vocab, words, vectors)
 
@@ -355,7 +357,7 @@ class Embedding(object):
         elif mode == "glove":
             # TODO: fix defaults
             # scale = 0
-            self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
+            self.embedding, bias = solver.glove(self.mat, self.embedding, bias=self.bias, iterations=iterations, eta=eta, batch=batch)
         elif mode == "sparsesvd":
             self.embedding = solver.sparseSVD(self.mat, self.dim)
         elif mode == "gensim":
