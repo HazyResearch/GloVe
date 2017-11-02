@@ -49,8 +49,12 @@ def main(argv=None):
                                 help="filename of cooccurrence binary")
     compute_parser.add_argument("--initial", type=str, default=None,
                                 help="filename of initial embedding vectors")
+    compute_parser.add_argument("--initialbias", type=str, default=None,
+                                help="filename of initial bias")
     compute_parser.add_argument("-o", "--vectors", type=str, default="vectors.txt",
                                 help="filename for embedding vectors output")
+    compute_parser.add_argument("--bias", type=str, default="bias.txt",
+                                help="filename for bias output")
 
     compute_parser.add_argument("-p", "--preprocessing", type=str.lower, default="ppmi",
                                 choices=["none", "log1p", "ppmi"],
@@ -138,7 +142,7 @@ def main(argv=None):
             sys.stdout.flush()
 
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
-        embedding.load_from_file(args.vocab, args.cooccurrence, args.initial)
+        embedding.load_from_file(args.vocab, args.cooccurrence, args.initial, args.initialbias)
         # embedding.load(*util.synthetic(2, 4))
         embedding.preprocessing(args.preprocessing)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
@@ -198,7 +202,7 @@ class Embedding(object):
         self.words = words
         self.embedding = embedding
 
-    def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", initial_vectors=None):
+    def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", initial_vectors=None, initial_bias=None):
         begin = time.time()
 
         def parse_line(l):
@@ -261,6 +265,22 @@ class Embedding(object):
 
         if self.gpu and not self.embedgpu:
             vectors = vectors.pin_memory()
+
+        if initial_bias is not None:
+            # TODO: merge this with init bias in glove
+
+            # TODO: verify that the biases have the right set of words
+            begin = time.time()
+            # TODO: select proper precision
+            dtype = collections.defaultdict(lambda: self.CpuTensor().numpy().dtype)
+            dtype[0] = str
+            self.bias = pandas.read_csv(initial_vectors, sep=" ", header=None, dtype=dtype).iloc[:, 1].as_matrix()
+            if self.embedgpu: # TODO: own flag?
+                self.bias = tensor_type.to_gpu(self.CpuTensor)(self.bias)
+            else:
+                self.bias = self.CpuTensor(self.bias)
+            print("Loading initial biases took", time.time() - begin)
+            sys.stdout.flush()
 
         self.load(cooccurrence, vocab, words, vectors)
 
