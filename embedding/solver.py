@@ -184,7 +184,7 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
         begin = time.time()
         f_mat = mat.clone()
         f_mat._values().div_(xmax).clamp_(max=1)
-        # TODO: alpha power
+        f.pow_(alpha)
 
         log_mat = mat.clone()
         log_mat._values().log_()
@@ -204,8 +204,8 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
                 X = mat._values()[start:end]
 
                 f = X / xmax
-                f.clamp(max=1)
-                # TODO alpha power
+                f.clamp_(max=1)
+                f.pow_(alpha)
 
                 row = mat._indices()[0, start:end]
                 col = mat._indices()[1, start:end]
@@ -229,8 +229,8 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
             X = mat._values()[start:end]
 
             f = X / xmax
-            f.clamp(max=1)
-            # TODO alpha power
+            f.clamp_(max=1)
+            f.pow_(alpha)
 
             row = mat._indices()[0, start:end]
             col = mat._indices()[1, start:end]
