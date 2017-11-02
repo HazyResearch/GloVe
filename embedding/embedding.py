@@ -240,7 +240,7 @@ class Embedding(object):
                 vectors = tensor_type.to_gpu(self.CpuTensor)(n, self.dim)
             else:
                 vectors = self.CpuTensor(n, self.dim)
-            # vectors.random_(2)
+            vectors.random_(2)
             print("Random initialization took ", time.time() - begin)
             sys.stdout.flush()
             vectors, _ = util.normalize(vectors)
