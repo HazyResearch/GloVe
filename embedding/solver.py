@@ -6,6 +6,9 @@ import time
 import os
 import struct
 import sys
+import sparsesvd
+import gensim
+import scipy.sparse
 
 import embedding.util as util
 
@@ -248,3 +251,22 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
         sys.stdout.flush()
 
     return x, bias
+
+
+def sparseSVD(mat, dim):
+    begin = time.time()
+    val = mat._values().numpy()
+    row = mat._indices()[0, :].numpy()
+    col = mat._indices()[1, :].numpy()
+    shape = mat.shape
+    mat = scipy.sparse.coo_matrix((val, (row, col)), shape).tocsc()
+    print("Converting took", time.time() - begin)
+    sys.stdout.flush()
+
+    begin = time.time()
+    u, s, v = sparsesvd.sparsesvd(mat, dim)
+    print("Solving took", time.time() - begin)
+    sys.stdout.flush()
+
+    return u
+

@@ -57,7 +57,7 @@ def main(argv=None):
                                 help="Preprocessing of cooccurrence matrix before eigenvector computation")
 
     compute_parser.add_argument("-s", "--solver", type=str.lower, default="pi",
-                                choices=["pi", "alecton", "vr", "sgd", "glove"],
+                                choices=["pi", "alecton", "vr", "sgd", "glove", "sparsesvd", "gemsim"],
                                 help="Solver used to find top eigenvectors")
     compute_parser.add_argument("-i", "--iterations", type=int, default=50,
                                 help="Iterations used by solver")
@@ -110,6 +110,16 @@ def main(argv=None):
             print("         Toggling off GPU use.")
             sys.stdout.flush()
             args.gpu = False
+            args.matgpu = False
+            args.embedgpu = False
+
+        if args.gpu and (args.solver == "sparsesvd" or args.solver == "gensim"):
+            print("WARNING: SparseSVD and gensim are not implemented for GPU.")
+            print("         Toggling off GPU use.")
+            sys.stdout.flush()
+            args.gpu = False
+            args.matgpu = False
+            args.embedgpu = False
 
         if args.solver == "glove" and args.preprocessing != "none":
             print("WARNING: GloVe only behaves properly with no preprocessing.")
@@ -230,7 +240,7 @@ class Embedding(object):
                 vectors = tensor_type.to_gpu(self.CpuTensor)(n, self.dim)
             else:
                 vectors = self.CpuTensor(n, self.dim)
-            vectors.random_(2)
+            # vectors.random_(2)
             print("Random initialization took ", time.time() - begin)
             sys.stdout.flush()
             vectors, _ = util.normalize(vectors)
@@ -326,6 +336,10 @@ class Embedding(object):
             # TODO: fix defaults
             # scale = 0
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=None, iterations=iterations, eta=eta, batch=batch)
+        elif mode == "sparsesvd":
+            self.embedding = solver.sparseSVD(self.mat, self.dim)
+        elif mode == "gensim":
+            self.embedding = solver.glove(self.mat)
 
         self.scale(scale)
         if normalize:
