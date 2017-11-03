@@ -6,7 +6,7 @@ python:
 
 install:
   - sudo apt-get update
-  - sudo apt-get install nvidia-cuda-toolkit revolution-mkl
+  - sudo apt-get install nvidia-cuda-toolkit
   # https://conda.io/docs/user-guide/tasks/use-conda-with-travis-ci.html
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
