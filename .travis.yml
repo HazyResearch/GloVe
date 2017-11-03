@@ -28,9 +28,10 @@ install:
   - pip install -e .
 
 script:
-  - pwd
-  - find .
-  # python test/test_tensor_type_conversion.py
+  - cd embedding_cpp
+  - cmake .
+  - make
+  - cd ..
   - cd embedding/data/cooccurrence/wikipedia_sample
   - embedding compute
   - embedding evaluate
