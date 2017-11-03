@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats
 
 
-def evaluate_vectors_analogy(W, vocab, ivocab):
+def evaluate_vectors_analogy(W, vocab, ivocab, method="add"):
     """Evaluate the trained word vectors on a variety of tasks"""
 
     print("Analogy Task")
@@ -46,9 +46,24 @@ def evaluate_vectors_analogy(W, vocab, ivocab):
         for j in range(num_iter):
             subset = np.arange(j * split_size, min((j + 1) * split_size, len(ind1)))
 
-            pred_vec = (W[ind2[subset], :] - W[ind1[subset], :] + W[ind3[subset], :])
-            # cosine similarity if input W has been normalized
-            dist = np.dot(W, pred_vec.T)
+            if method == "add":
+                pred_vec = (W[ind2[subset], :] - W[ind1[subset], :] + W[ind3[subset], :])
+                # cosine similarity if input W has been normalized
+                dist = np.dot(W, pred_vec.T)
+            elif method == "mul":
+                # This is 3CosMul from
+                # Linguistic Regularities in Sparse and Explicit Word Representations
+
+                epsilon = 0.001
+
+                # cosine similarity if input W has been normalized
+                cos_a  = (np.dot(W, W[ind1[subset], :].T) + 1) / 2
+                cos_as = (np.dot(W, W[ind2[subset], :].T) + 1) / 2
+                cos_b  = (np.dot(W, W[ind3[subset], :].T) + 1) / 2
+
+                dist = cos_as * cos_b / (cos_a + epsilon)
+            else:
+                raise NotImplementedError("Method \"" + method + "\" for analogy task not recognized.")
 
             for k in range(len(subset)):
                 dist[ind1[subset[k]], k] = -np.Inf

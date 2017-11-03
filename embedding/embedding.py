@@ -173,7 +173,8 @@ def main(argv=None):
         W_norm = (W.T / d).T
         # evaluate.evaluate_human_sim()
         evaluate.evaluate_vectors_sim(W, vocab, ivocab)
-        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab)
+        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab, "add")
+        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab, "mul")
 
 
 class Embedding(object):
