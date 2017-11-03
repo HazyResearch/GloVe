@@ -7,6 +7,10 @@ python:
 install:
   - sudo apt-get update
   - sudo apt-get install nvidia-cuda-toolkit
+  - wget http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/12070/l_mkl_2018.0.128.tgz
+  - tar -xzvf l_mkl_2018.0.128.tgz
+  - cd l_mkl_2018.0.128/
+  - ./install.sh --silent
   # https://conda.io/docs/user-guide/tasks/use-conda-with-travis-ci.html
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
