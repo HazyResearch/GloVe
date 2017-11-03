@@ -40,3 +40,8 @@ build/*
 
 # Python
 *.pyc
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
