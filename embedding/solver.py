@@ -7,7 +7,7 @@ import os
 import struct
 import sys
 import sparsesvd
-import gensim
+# import gensim
 import scipy.sparse
 
 import embedding.util as util
