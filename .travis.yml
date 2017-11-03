@@ -12,7 +12,6 @@ install:
   - sudo wget https://apt.repos.intel.com/setup/intelproducts.list -O /etc/apt/sources.list.d/intelproducts.list
   - sudo apt-get update
   - sudo apt-get install intel-mkl
-  - source /opt/intel/bin/compilervars.sh intel64
   # https://conda.io/docs/user-guide/tasks/use-conda-with-travis-ci.html
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
@@ -35,6 +34,7 @@ install:
   - pip install -e .
 
 script:
+  - source /opt/intel/bin/compilervars.sh intel64
   - cd embedding_cpp
   - cmake .
   - make
