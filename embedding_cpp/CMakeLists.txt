@@ -20,6 +20,7 @@ cuda_add_executable(
     solver.cu
     solver.cc
     solver.h
+    cxxopts.h
     embedding.cc
 )
 
