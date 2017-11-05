@@ -78,7 +78,7 @@ def main(argv=None):
 
     compute_parser.add_argument("--scale", type=float, default=0.5,
                                 help="Scale on eigenvector is $\lambda_i ^ s$")
-    compute_parser.add_argument("-n", "--normalize", type=util.str2bool, default=True,
+    compute_parser.add_argument("-n", "--normalize", type=util.str2bool, default=False,
                                 help="Toggle to normalize embeddings")
 
     compute_parser.add_argument("-g", "--gpu", type=util.str2bool, default=True,
