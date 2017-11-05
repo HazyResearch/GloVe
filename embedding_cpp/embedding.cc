@@ -24,9 +24,9 @@ int main(int argc, char *argv[], char *envp[]) {
     parser.add_options()
       ("h,help", "print help")
       ("d,dim", "number of dimensions in embedding", cxxopts::value<size_t>(n_dimensions)->default_value("50"))
-      ("n,iter", "number of iterations", cxxopts::value<size_t>(n_iterations)->default_value("10"))
+      ("i,iter", "number of iterations", cxxopts::value<size_t>(n_iterations)->default_value("10"))
       ("t,threads", "number of CPU threads", cxxopts::value<size_t>(n_threads)->default_value("48"))
-      // ("g,gpu", "toogle GPU use", cxxopts::value<bool>(gpu)->default_value(true))
+      ("g,gpu", "toogle GPU use", cxxopts::value<bool>(gpu)->default_value("true"))
       ("c,cooccurrence", "name of cooccurrence file", cxxopts::value<std::string>(cooccurrence_file)->default_value("cooccurrence.shuf.bin"))
       ("v,vocab", "name of vocab file", cxxopts::value<std::string>(vocab_file)->default_value("vocab.txt"))
       ("o,vectors", "name of vectors output file", cxxopts::value<std::string>(output_file)->default_value("vectors.txt"))
@@ -46,6 +46,7 @@ int main(int argc, char *argv[], char *envp[]) {
   std::cout << "dimension: " << n_dimensions << std::endl;
   std::cout << "iterations: " << n_iterations << std::endl;
   std::cout << "threads: " << n_threads << std::endl;
+  std::cout << "gpu: " << gpu << std::endl;
 
   mkl_set_num_threads(n_threads);  // set num threads
   omp_set_num_threads(n_threads);  // set num threads
