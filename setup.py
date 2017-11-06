@@ -24,4 +24,5 @@ setup(
         ],
     },
     package_data={"embedding": [os.path.join(root, f) for root, dirs, files in os.walk("embedding/data") for f in files]},
+    include_package_data=True,
 )
