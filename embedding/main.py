@@ -18,17 +18,18 @@ import embedding.util as util
 import embedding.evaluate as evaluate
 import embedding.tensor_type as tensor_type
 import embedding.parser as parser
+import embedding.logging_config as logging_config
 
 
 def main(argv=None):
 
+    # Parse command line arguments
     args = parser.get_parser().parse_args(argv)
 
-    # Prepare logger
-    logging.getLogger(__name__).addHandler(logging.NullHandler())
+    # Set up logging for package
+    logging_config.init(args.logging)
 
     if args.task == "cooccurrence":
-        # subprocess.call(["./cooccurrence.sh", args.text], cwd=os.path.join(os.path.dirname(__file__), "..",))
         subprocess.call([os.path.join(os.path.dirname(__file__), "..", "cooccurrence.sh"), args.text])
     elif args.task == "compute":
         if args.gpu and not torch.cuda.is_available():
@@ -89,6 +90,8 @@ class Embedding(object):
 
         self.CpuTensor = CpuTensor
 
+        self.logger = logging.getLogger(__name__)
+
     def load(self, cooccurrence, vocab, words, embedding=None):
         self.n = cooccurrence.size()[0]
 
@@ -112,7 +115,7 @@ class Embedding(object):
             words = [l[0] for l in lines]
             vocab = self.CpuTensor([l[1] for l in lines])
         n = vocab.size()[0]
-        print("n:", n)
+        self.logger.info("Distinct Words: " + str(n))
         sys.stdout.flush()
 
         filesize = os.stat(cooccurrence_file).st_size
