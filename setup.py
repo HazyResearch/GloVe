@@ -1,6 +1,7 @@
 """For pip."""
 
 from setuptools import setup, find_packages
+import os
 
 exec(open('embedding/__version__.py').read())
 
@@ -8,7 +9,7 @@ setup(
     name="embedding",
     version=__version__,
     description="compute word embeddings",
-    packages=find_packages(),
+    packages=["embedding"],
     install_requires=[
         "torch",
         "numba",
@@ -22,4 +23,5 @@ setup(
             "embedding = embedding.main:main",
         ],
     },
+    package_data={"embedding": [os.path.join(root, f) for root, dirs, files in os.walk("embedding/data") for f in files]},
 )
