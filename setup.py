@@ -19,7 +19,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "embedding = embedding.embedding:main",
+            "embedding = embedding.main:main",
         ],
     },
 )

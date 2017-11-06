@@ -1,5 +1,5 @@
-from .embedding import Embedding
-from .embedding import main
+from .main import Embedding
+from .main import main
 from .evaluate import evaluate
 from .__version__ import __version__
 
