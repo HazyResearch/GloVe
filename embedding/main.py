@@ -28,30 +28,28 @@ def main(argv=None):
 
     # Set up logging for package
     logging_config.init(args.logging)
+    logger = logging.getLogger(__name__)
 
     if args.task == "cooccurrence":
         subprocess.call([os.path.join(os.path.dirname(__file__), "..", "cooccurrence.sh"), args.text])
     elif args.task == "compute":
         if args.gpu and not torch.cuda.is_available():
-            print("WARNING: GPU use requested, but GPU not available.")
-            print("         Toggling off GPU use.")
-            sys.stdout.flush()
+            logger.warn("GPU use requested, but GPU not available. "
+                        "Toggling off GPU use.")
             args.gpu = False
             args.matgpu = False
             args.embedgpu = False
 
         if args.gpu and (args.solver == "sparsesvd" or args.solver == "gensim"):
-            print("WARNING: SparseSVD and gensim are not implemented for GPU.")
-            print("         Toggling off GPU use.")
-            sys.stdout.flush()
+            logger.warn("SparseSVD and gensim are not implemented for GPU. "
+                        "Toggling off GPU use.")
             args.gpu = False
             args.matgpu = False
             args.embedgpu = False
 
         if args.solver == "glove" and args.preprocessing != "none":
-            print("WARNING: GloVe only behaves properly with no preprocessing.")
-            print("         Turning off preprocessing.")
-            sys.stdout.flush()
+            logger.warn("GloVe only behaves properly with no preprocessing. "
+                        "Turning off preprocessing.")
             args.preprocessing = "none"
 
         CpuTensor = torch.FloatTensor
@@ -60,9 +58,8 @@ def main(argv=None):
         elif args.precision == "double":
             CpuTensor = torch.DoubleTensor
         else:
-            print("WARNING: Precision \"" + args.precision + "\" is not recognized.")
-            print("         Defaulting to \"float\".")
-            sys.stdout.flush()
+            logger.warn("Precision \"" + args.precision + "\" is not recognized. "
+                        "Defaulting to \"float\".")
 
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
         embedding.load_from_file(args.vocab, args.cooccurrence, args.initial, args.initialbias)
@@ -116,16 +113,13 @@ class Embedding(object):
             vocab = self.CpuTensor([l[1] for l in lines])
         n = vocab.size()[0]
         self.logger.info("Distinct Words: " + str(n))
-        sys.stdout.flush()
 
         filesize = os.stat(cooccurrence_file).st_size
         assert(filesize % 16 == 0)
         nnz = filesize // 16
-        print("nnz:", nnz)
-        sys.stdout.flush()
+        self.logger.info("Number of non-zeros: " + str(nnz))
 
         dt = np.dtype([("ind", "2<i4"), ("val", "<d")])
-        # dt = np.dtype([("row", "<i4"), ("col", "<i4"), ("val", "<d")])
         data = np.fromfile(cooccurrence_file, dtype=dt)
         ind = torch.IntTensor(data["ind"].transpose()).type(torch.LongTensor) - 1
         val = self.CpuTensor(data["val"])
@@ -133,9 +127,7 @@ class Embedding(object):
         # TODO: coalescing is very slow, and the cooccurrence matrix is
         # almost always coalesced, but this might not be safe
         # cooccurrence = cooccurrence.coalesce()
-        end = time.time()
-        print("Loading cooccurrence matrix took", end - begin)
-        sys.stdout.flush()
+        self.logger.info("Loading cooccurrence matrix took " + str(time.time() - begin))
 
         if initial_vectors is None:
             begin = time.time()
@@ -145,8 +137,7 @@ class Embedding(object):
             else:
                 vectors = self.CpuTensor(n, self.dim)
             vectors.random_(2)
-            print("Random initialization took ", time.time() - begin)
-            sys.stdout.flush()
+            self.logger.info("Random initialization took " + str(time.time() - begin))
             vectors, _ = util.normalize(vectors)
         else:
             # TODO: verify that the vectors have the right set of words
@@ -160,8 +151,7 @@ class Embedding(object):
                 vectors = tensor_type.to_gpu(self.CpuTensor)(vectors)
             else:
                 vectors = self.CpuTensor(vectors)
-            print("Loading initial vectors took", time.time() - begin)
-            sys.stdout.flush()
+            self.logger.info("Loading initial vectors took " + str(time.time() - begin))
 
         if self.gpu and not self.embedgpu:
             vectors = vectors.pin_memory()
@@ -179,8 +169,7 @@ class Embedding(object):
                 self.bias = tensor_type.to_gpu(self.CpuTensor)(self.bias)
             else:
                 self.bias = self.CpuTensor(self.bias)
-            print("Loading initial biases took", time.time() - begin)
-            sys.stdout.flush()
+            self.logger.info("Loading initial biases took " + str(time.time() - begin))
         else:
             self.bias = None
 
@@ -219,7 +208,7 @@ class Embedding(object):
             if keep.shape[0] != v.shape[0]:
                 ind = ind[:, keep]
                 v = v[keep]
-                print("nnz after ppmi processing:", keep.shape[0])
+                self.logger.info("nnz after ppmi processing: " + str(keep.shape[0]))
 
                 self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
             # self.mat = self.mat.coalesce()
@@ -232,9 +221,7 @@ class Embedding(object):
             else:
                 self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
 
-        end = time.time()
-        print("Preprocessing took", end - begin)
-        sys.stdout.flush()
+        self.logger.info("Preprocessing took " + str(time.time() - begin))
 
     def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, batch=100000, innerloop=10):
         if momentum == 0.:
@@ -270,9 +257,7 @@ class Embedding(object):
         if self.embedding.is_cuda:
             begin = time.time()
             self.embedding = self.embedding.cpu()
-            end = time.time()
-            print("CPU Loading:", end - begin)
-            sys.stdout.flush()
+            self.logger.info("CPU Loading: " + str(time.time() - begin))
 
     def scale(self, p=1.):
         if p != 0:
@@ -285,9 +270,7 @@ class Embedding(object):
 
             norm = norm.pow(p)
             self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
-            end = time.time()
-            print("Final scaling:", end - begin)
-            sys.stdout.flush()
+            self.logger.info("Final scaling: " + str(time.time() - begin))
 
     def normalize_embeddings(self):
         norm = torch.norm(self.embedding, 2, 1, True)
@@ -298,9 +281,7 @@ class Embedding(object):
         with open(filename, "w") as f:
             for i in range(self.n):
                 f.write(self.words[i] + " " + " ".join([str(self.embedding[i, j]) for j in range(self.dim)]) + "\n")
-        end = time.time()
-        print("Saving embeddings:", end - begin)
-        sys.stdout.flush()
+        self.logger.info("Saving embeddings: " + str(time.time() - begin))
 
 if __name__ == "__main__":
     main(sys.argv)
