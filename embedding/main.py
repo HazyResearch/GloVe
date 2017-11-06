@@ -63,10 +63,8 @@ def main(argv=None):
 
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
         embedding.load_from_file(args.vocab, args.cooccurrence, args.initial, args.initialbias)
-        # embedding.load(*util.synthetic(2, 4))
         embedding.preprocessing(args.preprocessing)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
-        embedding.evaluate()
         embedding.save_to_file(args.vectors)
     elif args.task == "evaluate":
         evaluate.evaluate(args.vocab, args.vectors)
