@@ -9,6 +9,7 @@ import sys
 import sparsesvd
 # import gensim
 import scipy.sparse
+import logging
 
 import embedding.util as util
 

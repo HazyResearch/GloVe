@@ -6,6 +6,7 @@ import numpy as np
 import time
 import sys
 import argparse
+import logging
 
 import embedding.tensor_type as tensor_type
 
@@ -26,7 +27,7 @@ def synthetic(n, nnz):
     vocab = None
     words = None
     logger = logging.getLogger(__name__)
-    logger.info("Generating synthetic data:" + str(time.time() - begin))
+    logger.info("Generating synthetic data: " + str(time.time() - begin))
 
     return cooccurrence, vocab, words
 
@@ -46,7 +47,7 @@ def normalize(x, x0=None):
     x = x[:, perm]
     if x0 is not None:
         x0 = x0[:, perm]
-    logger.info("Permute time:" + str(time.time() - a))
+    logger.info("Permute time: " + str(time.time() - a))
     try:
         temp, r = torch.qr(x)
     except RuntimeError as e:
@@ -67,7 +68,7 @@ def normalize(x, x0=None):
         x = temp
         if x0 is not None:
             x0 = torch.mm(x0, torch.inverse(r))
-    logger.info("Normalizing took" + str(time.time() - begin))
+    logger.info("Normalizing took " + str(time.time() - begin))
 
     return x, x0
 
