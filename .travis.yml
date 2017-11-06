@@ -31,7 +31,7 @@ install:
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION torchvision -c soumith
   - source activate test-environment
 
-  - pip install -e .
+  - pip install .
 
 script:
   - source /opt/intel/bin/compilervars.sh intel64
