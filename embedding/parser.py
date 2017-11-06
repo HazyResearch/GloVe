@@ -15,6 +15,10 @@ def get_parser():
                         action='version',
                         version="%(prog)s " + __version__,
                         help="Print version number.")
+    # Add verbosity level
+    parser.add_argument("--logging", type=str.upper, default="INFO",
+                        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+                        help="Select logging verbosity.")
 
     subparser = parser.add_subparsers(dest="task")
 

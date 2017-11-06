@@ -9,6 +9,7 @@ import sys
 import sparsesvd
 # import gensim
 import scipy.sparse
+import logging
 
 import embedding.util as util
 
@@ -16,15 +17,16 @@ import embedding.util as util
 
 
 def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=False):
+
+    logger = logging.getLogger(__name__)
+
     for i in range(iterations):
         begin = time.time()
         if beta == 0.:
             x = util.mm(mat, x, gpu)
         else:
             x, x0 = util.mm(mat, x, gpu) - beta * x0, x
-        end = time.time()
-        print("Iteration", i + 1, "took", end - begin)
-        sys.stdout.flush()
+        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
         if (i + 1) % norm_freq == 0:
             x, x0 = util.normalize(x, x0)
@@ -37,6 +39,9 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=Fa
 
 
 def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
+
+    logger = logging.getLogger(__name__)
+
     # TODO: alecton will need a lot more iterations (since one iteration does
     #       much less work) -- clean way to have different defaults?
     n = mat.shape[0]
@@ -71,7 +76,7 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
 
         x += eta * torch.mm(sample, x)
         end = time.time()
-        print("Iteration", i + 1, "took", end - begin)
+        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
         if (i + 1) % norm_freq == 0:
             x, _ = util.normalize(x, None)
@@ -120,8 +125,7 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
 
             # TODO: option to normalize in inner loop
 
-        end = time.time()
-        print("Iteration", i + 1, "took", end - begin)
+        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
         if (i + 1) % norm_freq == 0:
             x, x0 = util.normalize(x, x0)
@@ -159,14 +163,12 @@ def sgd(mat, x, iterations=50, eta=1e-3, batch=100000):
             x.index_add_(0, torch.cat([row, col]), dx)
 
             total_cost += 0.5 * (error * error).sum()
-            print("Iteration", i + 1, "\t", start // batch + 1, "/", (nnz + batch - 1) // batch, "\t", time.time() - begin, end="\r")
+            logging.info("Iteration" + str(i + 1) + "\t" + str(start // batch + 1), " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
 
-        print("Iteration", i + 1, "took", time.time() - begin)
-        print("Error:", total_cost / nnz)
-        sys.stdout.flush()
+        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
+        logging.info("Error: " + str(total_cost / nnz))
 
     return x
-    raise NotImplementedError("SGD solver is not implemented yet.")
 
 
 def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
@@ -190,7 +192,7 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
 
         log_mat._values().mul_(f_mat._values())
         bias = util.sum_rows(log_mat) / util.sum_rows(f_mat) / 2
-        print("Initial bias took", time.time() - begin)
+        logging.info("Initial bias took" + str(time.time() - begin))
 
         # bias = torch.cuda.FloatTensor(n)
         # bias.zero_()
@@ -216,8 +218,8 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
                 bias.index_add_(0, torch.cat([row, col]), torch.cat([step, step]))
 
                 total_cost += 0.5 * (f * error * error).sum()
-                print("Tune bias ", i + 1, "\t", start // batch + 1, "/", (nnz + batch - 1) // batch, "\t", time.time() - begin, end="\r")
-            print("Error:", total_cost / nnz)
+                logging.info("Tune bias " + str(i + 1) + "\t" + str(start // batch + 1) + " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
+            logging.info("Error: " + str(total_cost / nnz))
 
     for i in range(iterations):
         begin = time.time()
@@ -243,11 +245,10 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
             # bias.index_add_(0, torch.cat([row, col]), torch.cat([step, step]))
 
             total_cost += 0.5 * (f * error * error).sum()
-            print("Iteration", i + 1, "\t", start // batch + 1, "/", (nnz + batch - 1) // batch, "\t", time.time() - begin, end="\r")
+            logging.info("Iteration" + str(i + 1) + "\t" + str(start // batch + 1) + " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
 
-        print("Iteration", i + 1, "took", time.time() - begin)
-        print("Error:", total_cost / nnz)
-        sys.stdout.flush()
+        logging.info("Iteration" + str(i + 1) + " took " + str(time.time() - begin))
+        logging.info("Error:" + str(total_cost / nnz))
 
     return x, bias
 
@@ -259,13 +260,11 @@ def sparseSVD(mat, dim):
     col = mat._indices()[1, :].numpy()
     shape = mat.shape
     mat = scipy.sparse.coo_matrix((val, (row, col)), shape).tocsc()
-    print("Converting took", time.time() - begin)
-    sys.stdout.flush()
+    logging.info("Converting took" + str(time.time() - begin))
 
     begin = time.time()
     u, s, v = sparsesvd.sparsesvd(mat, dim)
-    print("Solving took", time.time() - begin)
-    sys.stdout.flush()
+    logging.info("Solving took" + str(time.time() - begin))
 
     # TODO fix precision
     return torch.FloatTensor(u.transpose())

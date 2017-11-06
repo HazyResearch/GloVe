@@ -4,6 +4,7 @@ import os
 import argparse
 import numpy as np
 import scipy.stats
+import logging
 
 
 def evaluate(vocab, vectors):
@@ -41,7 +42,9 @@ def evaluate(vocab, vectors):
 def evaluate_vectors_analogy(W, vocab, ivocab, method="add"):
     """Evaluate the trained word vectors on a variety of tasks"""
 
-    print("Analogy Task")
+    logger = logging.getLogger(__name__)
+
+    logger.info("Analogy Task")
 
     filenames = [
         'capital-common-countries.txt', 'capital-world.txt', 'currency.txt',
@@ -115,17 +118,17 @@ def evaluate_vectors_analogy(W, vocab, ivocab, method="add"):
             count_syn = count_syn + len(ind1)
             correct_syn = correct_syn + sum(val)
 
-        print("    %s:" % filenames[i][:-4])
-        print('        ACCURACY TOP1: %.2f%% (%d/%d)' %
+        logger.info("    %s:" % filenames[i][:-4])
+        logger.info('        ACCURACY TOP1: %.2f%% (%d/%d)' %
               (np.mean(val) * 100, np.sum(val), len(val)))
 
-    print('    Questions seen/total: %.2f%% (%d/%d)' %
+    logger.info('    Questions seen/total: %.2f%% (%d/%d)' %
           (100 * count_tot / float(full_count), count_tot, full_count))
-    print('    Semantic accuracy: %.2f%%  (%i/%i)' %
+    logger.info('    Semantic accuracy: %.2f%%  (%i/%i)' %
           (100 * correct_sem / float(count_sem), correct_sem, count_sem))
-    print('    Syntactic accuracy: %.2f%%  (%i/%i)' %
+    logger.info('    Syntactic accuracy: %.2f%%  (%i/%i)' %
           (100 * correct_syn / float(count_syn), correct_syn, count_syn))
-    print('Total accuracy: %.2f%%  (%i/%i)\n' % (100 * correct_tot / float(count_tot), correct_tot, count_tot))
+    logger.info('Total accuracy: %.2f%%  (%i/%i)\n' % (100 * correct_tot / float(count_tot), correct_tot, count_tot))
 
 
 def evaluate_vectors_sim(W, vocab, ivocab):
@@ -145,7 +148,8 @@ def evaluate_vectors_sim(W, vocab, ivocab):
     pred = np.sum(np.multiply(W[words[:, 0], :], W[words[:, 1], :]), 1)
 
     rho, p = scipy.stats.spearmanr(score, pred)
-    print("WordSimilarity-353 Spearman Correlation: %.3f\n" % rho)
+    logger = logging.getLogger(__name__)
+    logger.info("WordSimilarity-353 Spearman Correlation: %.3f\n" % rho)
 
 
 def evaluate_human_sim():
@@ -172,4 +176,5 @@ def evaluate_human_sim():
 
         rho, p = scipy.stats.spearmanr(score1, score2)
         total += rho
-    print("Human WordSimilarity-353 Spearman Correlation: %.3f\n" % (total / trials))
+    logger = logging.getLogger(__name__)
+    logger.info("Human WordSimilarity-353 Spearman Correlation: %.3f\n" % (total / trials))

@@ -6,6 +6,7 @@ import numpy as np
 import time
 import sys
 import argparse
+import logging
 
 import embedding.tensor_type as tensor_type
 
@@ -25,40 +26,40 @@ def synthetic(n, nnz):
     cooccurrence = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n])).coalesce()
     vocab = None
     words = None
-    end = time.time()
-    print("Generating synthetic data:", end - begin)
+    logger = logging.getLogger(__name__)
+    logger.info("Generating synthetic data: " + str(time.time() - begin))
 
     return cooccurrence, vocab, words
 
 
 def normalize(x, x0=None):
+
+    logger = logging.getLogger(__name__)
+
     # TODO: is it necessary to reorder columns by magnitude
     # TODO: more numerically stable implementation?
     begin = time.time()
     norm = torch.norm(x, 2, 0, True).squeeze()
-    print(" ".join(["{:10.2f}".format(n) for n in norm]))
+    logger.info(" ".join(["{:10.2f}".format(n) for n in norm]))
     a = time.time()
     _, perm = torch.sort(-norm)
     norm = norm[perm]
     x = x[:, perm]
     if x0 is not None:
         x0 = x0[:, perm]
-    print("Permute time:", time.time() - a)
-    sys.stdout.flush()
+    logger.info("Permute time: " + str(time.time() - a))
     try:
         temp, r = torch.qr(x)
     except RuntimeError as e:
-        print("ERROR: QR decomposition has run into a problem")
-        print("Older versions of pytoch had a memory leak in QR:")
-        print("    https://github.com/pytorch/pytorch/issues/3009")
-        print("Updating pytorch may fix this issue.")
-        sys.stdout.flush()
+        logger.error("QR decomposition has run into a problem\n"
+                     "Older versions of pytoch had a memory leak in QR:\n"
+                     "    https://github.com/pytorch/pytorch/issues/3009\n"
+                     "Updating pytorch may fix this issue.")
         raise e
     if np.isnan(torch.sum(temp)):
         # qr seems to occassionally be unstable and result in nan
-        print("WARNING: QR decomposition resulted in NaNs")
-        print("         Normalizing, but not orthogonalizing")
-        sys.stdout.flush()
+        logger.warn("QR decomposition resulted in NaNs\n"
+                    "Normalizing, but not orthogonalizing")
         # TODO: should a little bit of jitter be added to make qr succeed?
         x = x.div(norm.expand_as(x))
         if x0 is not None:
@@ -67,9 +68,7 @@ def normalize(x, x0=None):
         x = temp
         if x0 is not None:
             x0 = torch.mm(x0, torch.inverse(r))
-    end = time.time()
-    print("Normalizing took", end - begin)
-    sys.stdout.flush()
+    logger.info("Normalizing took " + str(time.time() - begin))
 
     return x, x0
 
@@ -84,6 +83,8 @@ def str2bool(v):
 
 
 def mm(A, x, gpu=False):
+
+    logger = logging.getLogger(__name__)
 
     if not (A.is_cuda or x.is_cuda or gpu):
         # Data and computation on CPU
@@ -134,14 +135,14 @@ def mm(A, x, gpu=False):
                         ind = ind.cuda(async=True)
                         val = val.cuda(async=True)
                     except RuntimeError as e:
-                        # print("WARNING: async transfer failed")
+                        # logging.warn("async transfer failed")
                         ind = ind.cuda()
                         val = val.cuda()
 
                     sample = SparseTensor(ind.t(), val, torch.Size([n, n]))
 
                 for j in range(x_batches):
-                    print(i, "/", A_batches, "\t", j, "/", x_batches, end="\r")
+                    logging.info(str(i) + " / " + str(A_batches) + "\t" + str(j) + " / " + str(x_batches) + "\r")
                     sys.stdout.flush()
 
                     if x.is_cuda:
@@ -155,7 +156,7 @@ def mm(A, x, gpu=False):
                         try:
                             cols = cols.cuda(async=True)
                         except RuntimeError as e:
-                            # print("WARNING: async transfer failed")
+                            # logging.warn("async transfer failed")
                             cols = cols.cuda()
 
                         cols = torch.mm(sample, cols).cpu()
