@@ -39,6 +39,8 @@ script:
   - cmake .
   - make
   - cd ..
+  - pwd
+  - find .
   - cd embedding/data/cooccurrence/wikipedia_sample
   - embedding compute -i 5
   - embedding evaluate
