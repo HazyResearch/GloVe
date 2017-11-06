@@ -148,33 +148,7 @@ def main(argv=None):
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
         embedding.save_to_file(args.vectors)
     elif args.task == "evaluate":
-        with open(args.vocab, 'r') as f:
-            words = [x.rstrip().split(' ')[0] for x in f.readlines()]
-        with open(args.vectors, 'r') as f:
-            vectors = {}
-            for line in f:
-                vals = line.rstrip().split(' ')
-                vectors[vals[0]] = [float(x) for x in vals[1:]]
-
-        vocab_size = len(words)
-        vocab = {w: idx for idx, w in enumerate(words)}
-        ivocab = {idx: w for idx, w in enumerate(words)}
-
-        vector_dim = len(vectors[ivocab[0]])
-        W = np.zeros((vocab_size, vector_dim))
-        for word, v in vectors.items():
-            if word == '<unk>':
-                continue
-            W[vocab[word], :] = v
-
-        # normalize each word vector to unit variance
-        W_norm = np.zeros(W.shape)
-        d = (np.sum(W ** 2, 1) ** (0.5))
-        W_norm = (W.T / d).T
-        # evaluate.evaluate_human_sim()
-        evaluate.evaluate_vectors_sim(W, vocab, ivocab)
-        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab, "add")
-        evaluate.evaluate_vectors_analogy(W_norm, vocab, ivocab, "mul")
+        evaluate.evaluate(args.vocab, args.vectors)
 
 
 class Embedding(object):
