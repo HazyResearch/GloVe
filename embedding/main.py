@@ -66,6 +66,7 @@ def main(argv=None):
         # embedding.load(*util.synthetic(2, 4))
         embedding.preprocessing(args.preprocessing)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
+        embedding.evaluate()
         embedding.save_to_file(args.vectors)
     elif args.task == "evaluate":
         evaluate.evaluate(args.vocab, args.vectors)
@@ -275,6 +276,13 @@ class Embedding(object):
     def normalize_embeddings(self):
         norm = torch.norm(self.embedding, 2, 1, True)
         self.embedding = self.embedding.div(norm.expand_as(self.embedding))
+
+    def evaluate(self):
+        embedding = self.embedding
+        if embedding.is_cuda:
+            embedding = embedding.cpu()
+        embedding = embedding.numpy()
+        return evaluate.evaluate(self.words, {self.words[i]: embedding[i, :] for i in range(len(self.words))})
 
     def save_to_file(self, filename):
         begin = time.time()

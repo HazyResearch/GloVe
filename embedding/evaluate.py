@@ -7,15 +7,17 @@ import scipy.stats
 import logging
 
 
-def evaluate(vocab, vectors):
+def evaluate(words, vectors):
     # TODO: give option to just pass in vocab and vectors (not filename)
-    with open(vocab, 'r') as f:
-        words = [x.rstrip().split(' ')[0] for x in f.readlines()]
-    with open(vectors, 'r') as f:
-        vectors = {}
-        for line in f:
-            vals = line.rstrip().split(' ')
-            vectors[vals[0]] = [float(x) for x in vals[1:]]
+    if type(words) == str:
+        with open(words, 'r') as f:
+            words = [x.rstrip().split(' ')[0] for x in f.readlines()]
+    if type(vectors) == str:
+        with open(vectors, 'r') as f:
+            vectors = {}
+            for line in f:
+                vals = line.rstrip().split(' ')
+                vectors[vals[0]] = [float(x) for x in vals[1:]]
 
     vocab_size = len(words)
     vocab = {w: idx for idx, w in enumerate(words)}
@@ -32,11 +34,14 @@ def evaluate(vocab, vectors):
     W_norm = np.zeros(W.shape)
     d = (np.sum(W ** 2, 1) ** (0.5))
     W_norm = (W.T / d).T
+
+    score = {}
     # evaluate_human_sim()
-    evaluate_vectors_sim(W, vocab, ivocab)
-    evaluate_vectors_analogy(W_norm, vocab, ivocab, "add")
-    evaluate_vectors_analogy(W_norm, vocab, ivocab, "mul")
-    # TODO also return scores
+    score["similarity"] = evaluate_vectors_sim(W, vocab, ivocab)
+    score["analogy-add"] = evaluate_vectors_analogy(W_norm, vocab, ivocab, "add")
+    score["analogy-mul"] = evaluate_vectors_analogy(W_norm, vocab, ivocab, "mul")
+
+    return score
 
 
 def evaluate_vectors_analogy(W, vocab, ivocab, method="add"):
@@ -130,6 +135,8 @@ def evaluate_vectors_analogy(W, vocab, ivocab, method="add"):
           (100 * correct_syn / float(count_syn), correct_syn, count_syn))
     logger.info('Total accuracy: %.2f%%  (%i/%i)\n' % (100 * correct_tot / float(count_tot), correct_tot, count_tot))
 
+    return correct_tot / float(count_tot)
+
 
 def evaluate_vectors_sim(W, vocab, ivocab):
     """Evaluate the trained word vectors on the WordSimilarity-353 task."""
@@ -150,6 +157,8 @@ def evaluate_vectors_sim(W, vocab, ivocab):
     rho, p = scipy.stats.spearmanr(score, pred)
     logger = logging.getLogger(__name__)
     logger.info("WordSimilarity-353 Spearman Correlation: %.3f\n" % rho)
+
+    return rho
 
 
 def evaluate_human_sim():
@@ -178,3 +187,5 @@ def evaluate_human_sim():
         total += rho
     logger = logging.getLogger(__name__)
     logger.info("Human WordSimilarity-353 Spearman Correlation: %.3f\n" % (total / trials))
+
+    return total / trials
