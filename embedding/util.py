@@ -168,7 +168,7 @@ def mm(A, x, gpu=False):
                     sample = SparseTensor(ind.t(), val, torch.Size([n, n]))
 
                 for j in range(x_batches):
-                    print(str(i) + " / " + str(A_batches) + "\t" + str(j) + " / " + str(x_batches) + "\r")
+                    print(str(i) + " / " + str(A_batches) + "\t" + str(j) + " / " + str(x_batches) + "\r", end="")
                     sys.stdout.flush()
 
                     if x.is_cuda:
@@ -188,6 +188,7 @@ def mm(A, x, gpu=False):
                         cols = torch.mm(sample, cols).cpu()
                         newx[:, start:end] += cols
 
+            print()
             return newx
 
 
