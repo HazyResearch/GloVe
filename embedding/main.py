@@ -129,7 +129,7 @@ class Embedding(object):
             if not self.gpu:
                 begin = time.time()
                 self.mat = scipy.sparse.csc_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
-                self.logger.info("CSR conversion took " + str(time.time() - begin))
+                self.logger.info("CSC conversion took " + str(time.time() - begin))
 
             # TODO: dump to file
         else:
@@ -272,7 +272,8 @@ class Embedding(object):
 
             # TODO: faster estimation of eigenvalues?
             temp = util.mm(self.mat, self.embedding, self.gpu)
-            norm = torch.norm(temp, 2, 0, True)
+            norm = torch.norm(temp, 2, 0, True).squeeze()
+            self.logger.info(" ".join(["{:10.2f}".format(n) for n in norm]))
 
             norm = norm.pow(p)
             self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
