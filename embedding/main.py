@@ -41,8 +41,8 @@ def main(argv=None):
             args.matgpu = False
             args.embedgpu = False
 
-        if args.gpu and (args.solver == "sparsesvd" or args.solver == "gensim"):
-            logger.warn("SparseSVD and gensim are not implemented for GPU. "
+        if args.gpu and (args.solver == "sparsesvd":
+            logger.warn("SparseSVD is not implemented for GPU. "
                         "Toggling off GPU use.")
             args.gpu = False
             args.matgpu = False
@@ -253,8 +253,6 @@ class Embedding(object):
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=self.bias, iterations=iterations, eta=eta, batch=batch)
         elif mode == "sparsesvd":
             self.embedding = solver.sparseSVD(self.mat, self.dim)
-        elif mode == "gensim":
-            self.embedding = solver.glove(self.mat)
 
         self.scale(scale)
         if normalize:
