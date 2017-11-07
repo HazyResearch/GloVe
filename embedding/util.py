@@ -117,13 +117,34 @@ def mm(A, x, gpu=False):
             indices = A._indices().t()
             values = A._values()
 
+            # TODO: GPU memory usage is actually about double this
+            #       what's causing the extra usage?
             # TODO: automate batch choice
-            A_batches = 35
-            x_batches = 5
+            GPU_MEMORY = 2 ** 30 # Amount of GPU memory to use
+                                 # TODO: automatically detect or cmd line
+
+            # Allocate half of memory to each part
+            A_MEM = GPU_MEMORY // 2
+            X_MEM = GPU_MEMORY // 2
+
+            A_elem_size = 4 + 4 + 8 # TODO: 8 for double right now -- use actual value
+            x_elem_size = n * 8 # TODO 8 for double right now
+
+            # TODO: warning if batch size is 0
+            A_batch_size = A_MEM // A_elem_size
+            x_batch_size = X_MEM // x_elem_size
+
+            A_batches = (nnz + A_batch_size - 1) // A_batch_size
+            x_batches = (dim + x_batch_size - 1) // x_batch_size
+
             if A.is_cuda:
                 A_batches = 1
             if x.is_cuda:
                 x_batches = 1
+
+            logger.debug("Coocurrence matrix using " + str(A_batches) + " batches")
+            logger.debug("Embedding using " + str(x_batches) + " batches")
+
             newx = 0 * x
             for i in range(A_batches):
                 if A.is_cuda:
@@ -147,7 +168,7 @@ def mm(A, x, gpu=False):
                     sample = SparseTensor(ind.t(), val, torch.Size([n, n]))
 
                 for j in range(x_batches):
-                    logging.info(str(i) + " / " + str(A_batches) + "\t" + str(j) + " / " + str(x_batches) + "\r")
+                    print(str(i) + " / " + str(A_batches) + "\t" + str(j) + " / " + str(x_batches) + "\r")
                     sys.stdout.flush()
 
                     if x.is_cuda:
