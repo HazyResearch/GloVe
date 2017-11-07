@@ -62,8 +62,8 @@ def main(argv=None):
                         "Defaulting to \"float\".")
 
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
-        embedding.load_from_file(args.vocab, args.cooccurrence, args.initial, args.initialbias)
-        embedding.preprocessing(args.preprocessing)
+        embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing)
+        embedding.load_vectors(args.initial, args.initialbias)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
         embedding.save_to_file(args.vectors)
     elif args.task == "evaluate":
@@ -75,7 +75,7 @@ class Embedding(object):
         self.dim = dim
         self.gpu = gpu
 
-        # TODO: add warning for storage on gpu when computation is on gpu
+        # TODO: add warning for storage on gpu when computation is on cpu
         # TODO: swap off storage if too much memory
         if matgpu is None:
             matgpu = gpu
@@ -88,51 +88,54 @@ class Embedding(object):
 
         self.logger = logging.getLogger(__name__)
 
-    def load(self, cooccurrence, vocab, words, embedding=None):
-        self.n = cooccurrence.size()[0]
-
-        # TODO: error if n > dim
-
-        self.cooccurrence = cooccurrence
-        self.vocab = vocab
-        self.words = words
-        self.embedding = embedding
-
-    def load_from_file(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", initial_vectors=None, initial_bias=None):
+    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", preprocessing="none"):
         begin = time.time()
 
-        def parse_line(l):
-            l = l.split()
-            assert(len(l) == 2)
-            return l[0], int(l[1])
+        if True: # TODO
 
-        with open(vocab_file) as f:
-            lines = [parse_line(l) for l in f]
-            words = [l[0] for l in lines]
-            vocab = self.CpuTensor([l[1] for l in lines])
-        n = vocab.size()[0]
-        self.logger.info("Distinct Words: " + str(n))
+            # Load vocab (words and counts)
+            def parse_line(l):
+                l = l.split()
+                assert(len(l) == 2)
+                return l[0], int(l[1])
 
-        filesize = os.stat(cooccurrence_file).st_size
-        assert(filesize % 16 == 0)
-        nnz = filesize // 16
-        self.logger.info("Number of non-zeros: " + str(nnz))
+            with open(vocab_file) as f:
+                lines = [parse_line(l) for l in f]
+                words = [l[0] for l in lines]
+                self.vocab = self.CpuTensor([l[1] for l in lines])
+            self.n = self.vocab.size()[0]
+            self.logger.info("Distinct Words: " + str(self.n))
 
-        dt = np.dtype([("ind", "2<i4"), ("val", "<d")])
-        data = np.fromfile(cooccurrence_file, dtype=dt)
-        ind = torch.IntTensor(data["ind"].transpose()).type(torch.LongTensor) - 1
-        val = self.CpuTensor(data["val"])
-        cooccurrence = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size([n, n]))
-        # TODO: coalescing is very slow, and the cooccurrence matrix is
-        # almost always coalesced, but this might not be safe
-        # cooccurrence = cooccurrence.coalesce()
-        self.logger.info("Loading cooccurrence matrix took " + str(time.time() - begin))
+            # Load cooccurrence matrix
+            filesize = os.stat(cooccurrence_file).st_size
+            assert(filesize % 16 == 0)
+            nnz = filesize // 16
+            self.logger.info("Number of non-zeros: " + str(nnz))
 
+            dt = np.dtype([("ind", "2<i4"), ("val", "<d")])
+            data = np.fromfile(cooccurrence_file, dtype=dt)
+            ind = torch.IntTensor(data["ind"].transpose()).type(torch.LongTensor) - 1
+            val = self.CpuTensor(data["val"])
+            self.cooccurrence = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size([self.n, self.n]))
+            # TODO: coalescing is very slow, and the cooccurrence matrix is
+            # almost always coalesced, but this might not be safe
+            # self.cooccurrence = self.cooccurrence.coalesce()
+            self.logger.info("Loading cooccurrence matrix took " + str(time.time() - begin))
+
+            # Preprocess cooccurrence matrix
+            self.preprocessing(preprocessing)
+
+            # TODO: dump to file
+        else:
+            pass # TODO: load from file
+
+    def load_vectors(self, initial_vectors=None, initial_bias=None):
+        # TODO: move into load
         if initial_vectors is None:
             begin = time.time()
             # TODO: this initialization is really bad for sgd and glove
             if self.embedgpu:
-                vectors = tensor_type.to_gpu(self.CpuTensor)(n, self.dim)
+                vectors = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
             else:
                 vectors = self.CpuTensor(n, self.dim)
             vectors.random_(2)
@@ -171,8 +174,6 @@ class Embedding(object):
             self.logger.info("Loading initial biases took " + str(time.time() - begin))
         else:
             self.bias = None
-
-        self.load(cooccurrence, vocab, words, vectors)
 
     def preprocessing(self, mode="ppmi"):
         begin = time.time()
