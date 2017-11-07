@@ -41,7 +41,7 @@ def main(argv=None):
             args.matgpu = False
             args.embedgpu = False
 
-        if args.gpu and (args.solver == "sparsesvd":
+        if args.gpu and args.solver == "sparsesvd":
             logger.warn("SparseSVD is not implemented for GPU. "
                         "Toggling off GPU use.")
             args.gpu = False
@@ -89,7 +89,7 @@ class Embedding(object):
 
         self.logger = logging.getLogger(__name__)
 
-    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", preprocessing="none"):
+    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.bin", preprocessing="none"):
         begin = time.time()
 
         if True: # TODO
