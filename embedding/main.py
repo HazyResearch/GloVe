@@ -137,7 +137,7 @@ class Embedding(object):
             if self.embedgpu:
                 vectors = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
             else:
-                vectors = self.CpuTensor(n, self.dim)
+                vectors = self.CpuTensor(self.n, self.dim)
             vectors.random_(2)
             self.logger.info("Random initialization took " + str(time.time() - begin))
             vectors, _ = util.normalize(vectors)
