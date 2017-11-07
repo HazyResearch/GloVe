@@ -141,10 +141,15 @@ class Embedding(object):
             begin = time.time()
             # TODO: this initialization is really bad for sgd and glove
             if self.embedgpu:
-                self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
+                # Older versions of PyTorch do not support random_ on GPU
+                # self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
+                # self.embedding.random_(2)
+                self.embedding = self.CpuTensor(self.n, self.dim)
+                self.embedding.random_(2)
+                self.embedding = self.embedding.cuda()
             else:
                 self.embedding = self.CpuTensor(self.n, self.dim)
-            self.embedding.random_(2)
+                self.embedding.random_(2)
             self.logger.info("Random initialization took " + str(time.time() - begin))
             self.embedding, _ = util.normalize(self.embedding)
         else:
