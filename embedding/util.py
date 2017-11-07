@@ -207,3 +207,4 @@ def sum_rows(A):
                 ans[ind[0, i]] += val[i]
             return ans
         return tensor_type.to_dense(A.type())(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
+        # return torch.from_numpy(scipy.sparse.coo_matrix((A._values().numpy(), (A._indices()[0, :].numpy(), A._indices()[1, :].numpy())), shape=A.shape).sum(1)).squeeze()
