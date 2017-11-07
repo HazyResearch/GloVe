@@ -52,3 +52,7 @@ script:
   - embedding evaluate
   - embedding compute --momentum 1.2 -i 5
   - embedding evaluate
+  - embedding compute --solver sgd --scale 0 -i 5
+  - embedding evaluate
+  - embedding compute --solver glove --preprocessing none --scale 0 -i 5
+  - embedding evaluate
