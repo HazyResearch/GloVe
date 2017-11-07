@@ -41,8 +41,8 @@ def main(argv=None):
             args.matgpu = False
             args.embedgpu = False
 
-        if args.gpu and (args.solver == "sparsesvd" or args.solver == "gensim"):
-            logger.warn("SparseSVD and gensim are not implemented for GPU. "
+        if args.gpu and args.solver == "sparsesvd":
+            logger.warn("SparseSVD is not implemented for GPU. "
                         "Toggling off GPU use.")
             args.gpu = False
             args.matgpu = False
@@ -89,7 +89,7 @@ class Embedding(object):
 
         self.logger = logging.getLogger(__name__)
 
-    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", preprocessing="none"):
+    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.bin", preprocessing="none"):
         begin = time.time()
 
         if True: # TODO
@@ -128,8 +128,8 @@ class Embedding(object):
 
             if not self.gpu:
                 begin = time.time()
-                self.mat = scipy.sparse.csr_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
-                self.logger.info("CSR conversion took " + str(time.time() - begin))
+                self.mat = scipy.sparse.csc_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
+                self.logger.info("CSC conversion took " + str(time.time() - begin))
 
             # TODO: dump to file
         else:
@@ -253,8 +253,6 @@ class Embedding(object):
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=self.bias, iterations=iterations, eta=eta, batch=batch)
         elif mode == "sparsesvd":
             self.embedding = solver.sparseSVD(self.mat, self.dim)
-        elif mode == "gensim":
-            self.embedding = solver.glove(self.mat)
 
         self.scale(scale)
         if normalize:
@@ -272,7 +270,8 @@ class Embedding(object):
 
             # TODO: faster estimation of eigenvalues?
             temp = util.mm(self.mat, self.embedding, self.gpu)
-            norm = torch.norm(temp, 2, 0, True)
+            norm = torch.norm(temp, 2, 0, True).squeeze()
+            self.logger.info(" ".join(["{:10.2f}".format(n) for n in norm]))
 
             norm = norm.pow(p)
             self.embedding = self.embedding.mul(norm.expand_as(self.embedding))

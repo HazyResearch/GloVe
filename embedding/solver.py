@@ -7,7 +7,6 @@ import os
 import struct
 import sys
 import sparsesvd
-# import gensim
 import scipy.sparse
 import logging
 
@@ -245,26 +244,17 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
             # bias.index_add_(0, torch.cat([row, col]), torch.cat([step, step]))
 
             total_cost += 0.5 * (f * error * error).sum()
-            logging.info("Iteration" + str(i + 1) + "\t" + str(start // batch + 1) + " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
+            logging.info("Iteration " + str(i + 1) + "\t" + str(start // batch + 1) + " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
 
-        logging.info("Iteration" + str(i + 1) + " took " + str(time.time() - begin))
-        logging.info("Error:" + str(total_cost / nnz))
+        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
+        logging.info("Error: " + str(total_cost / nnz))
 
     return x, bias
 
 
 def sparseSVD(mat, dim):
     begin = time.time()
-    val = mat._values().numpy()
-    row = mat._indices()[0, :].numpy()
-    col = mat._indices()[1, :].numpy()
-    shape = mat.shape
-    mat = scipy.sparse.coo_matrix((val, (row, col)), shape).tocsc()
-    logging.info("Converting took" + str(time.time() - begin))
-
-    begin = time.time()
     u, s, v = sparsesvd.sparsesvd(mat, dim)
-    logging.info("Solving took" + str(time.time() - begin))
+    logging.info("Solving took " + str(time.time() - begin))
 
-    # TODO fix precision
-    return torch.FloatTensor(u.transpose())
+    return torch.from_numpy(u.transpose())

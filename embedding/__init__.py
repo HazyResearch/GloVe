@@ -3,4 +3,4 @@ from .main import main
 from .evaluate import evaluate
 from .__version__ import __version__
 
-__all__ = ('embedding', 'solver')
+__all__ = ('solver')
