@@ -128,7 +128,7 @@ class Embedding(object):
 
             if not self.gpu:
                 begin = time.time()
-                self.mat = scipy.sparse.csr_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
+                self.mat = scipy.sparse.csc_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
                 self.logger.info("CSR conversion took " + str(time.time() - begin))
 
             # TODO: dump to file

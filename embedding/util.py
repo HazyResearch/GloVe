@@ -87,7 +87,9 @@ def mm(A, x, gpu=False):
 
     logger = logging.getLogger(__name__)
 
-    if type(A) == scipy.sparse.csr.csr_matrix:
+    if (type(A) == scipy.sparse.csr.csr_matrix or
+        type(A) == scipy.sparse.coo.coo_matrix or
+        type(A) == scipy.sparse.csc.csc_matrix):
         return torch.from_numpy(A * x.numpy())
     elif not (A.is_cuda or x.is_cuda or gpu):
         # Data and computation on CPU
