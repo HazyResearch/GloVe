@@ -135,12 +135,12 @@ class Embedding(object):
             begin = time.time()
             # TODO: this initialization is really bad for sgd and glove
             if self.embedgpu:
-                vectors = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
+                self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
             else:
-                vectors = self.CpuTensor(self.n, self.dim)
-            vectors.random_(2)
+                self.embedding = self.CpuTensor(self.n, self.dim)
+            self.embedding.random_(2)
             self.logger.info("Random initialization took " + str(time.time() - begin))
-            vectors, _ = util.normalize(vectors)
+            self.embedding, _ = util.normalize(self.embedding)
         else:
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
@@ -148,15 +148,15 @@ class Embedding(object):
             # TODO: select proper precision
             dtype = collections.defaultdict(lambda: self.CpuTensor().numpy().dtype)
             dtype[0] = str
-            vectors = pandas.read_csv(initial_vectors, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
+            self.embedding = pandas.read_csv(initial_vectors, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
             if self.embedgpu:
-                vectors = tensor_type.to_gpu(self.CpuTensor)(vectors)
+                self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.embedding)
             else:
-                vectors = self.CpuTensor(vectors)
+                self.embedding = self.CpuTensor(self.embedding)
             self.logger.info("Loading initial vectors took " + str(time.time() - begin))
 
         if self.gpu and not self.embedgpu:
-            vectors = vectors.pin_memory()
+            self.embedding = self.embedding.pin_memory()
 
         if initial_bias is not None:
             # TODO: merge this with init bias in glove
