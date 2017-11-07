@@ -101,7 +101,7 @@ class Embedding(object):
 
             with open(vocab_file) as f:
                 lines = [parse_line(l) for l in f]
-                words = [l[0] for l in lines]
+                self.words = [l[0] for l in lines]
                 self.vocab = self.CpuTensor([l[1] for l in lines])
             self.n = self.vocab.size()[0]
             self.logger.info("Distinct Words: " + str(self.n))
