@@ -12,6 +12,7 @@ import math
 import logging
 import pandas
 import collections
+import scipy
 
 import embedding.solver as solver
 import embedding.util as util
@@ -124,6 +125,11 @@ class Embedding(object):
 
             # Preprocess cooccurrence matrix
             self.preprocessing(preprocessing)
+
+            if not self.gpu:
+                begin = time.time()
+                self.mat = scipy.sparse.csr_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
+                self.logger.info("CSR conversion took " + str(time.time() - begin))
 
             # TODO: dump to file
         else:

@@ -7,6 +7,7 @@ import time
 import sys
 import argparse
 import logging
+import scipy
 
 import embedding.tensor_type as tensor_type
 
@@ -86,7 +87,9 @@ def mm(A, x, gpu=False):
 
     logger = logging.getLogger(__name__)
 
-    if not (A.is_cuda or x.is_cuda or gpu):
+    if type(A) == scipy.sparse.csr.csr_matrix:
+        return torch.from_numpy(A * x.numpy())
+    elif not (A.is_cuda or x.is_cuda or gpu):
         # Data and computation on CPU
         return torch.mm(A, x)
     else:
