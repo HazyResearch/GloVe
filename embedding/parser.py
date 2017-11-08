@@ -35,7 +35,7 @@ def get_parser():
 
     compute_parser.add_argument("--vocab", type=str, default="vocab.txt",
                                 help="filename of vocabulary file")
-    compute_parser.add_argument("-c", "--cooccurrence", type=str, default="cooccurrence.shuf.bin",
+    compute_parser.add_argument("-c", "--cooccurrence", type=str, default="cooccurrence.bin",
                                 help="filename of cooccurrence binary")
     compute_parser.add_argument("--initial", type=str, default=None,
                                 help="filename of initial embedding vectors")
