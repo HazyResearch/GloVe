@@ -19,12 +19,12 @@ def init_logging(level=logging.INFO):
                         "level": level},
                   "f": {"class": "logging.FileHandler",
                         "formatter": "f",
-                        "level": logging.NOTSET,
+                        "level": logging.DEBUG,
                         "filename": "embedding.log"}
                   },
               root={
                   "handlers": ["s", "f"],
-                  "level": level
+                  "level": logging.NOTSET
                   },
           )
 
