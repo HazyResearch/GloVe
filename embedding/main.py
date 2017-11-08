@@ -140,16 +140,16 @@ class Embedding(object):
         if initial_vectors is None:
             begin = time.time()
             # TODO: this initialization is really bad for sgd and glove
+            # Older versions of PyTorch do not support random_ on GPU
+            # self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
+            # self.embedding.random_(2)
+            self.embedding = self.CpuTensor(self.n, self.dim)
+            self.embedding.random_(2)
             if self.embedgpu:
-                # Older versions of PyTorch do not support random_ on GPU
-                # self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
-                # self.embedding.random_(2)
-                self.embedding = self.CpuTensor(self.n, self.dim)
-                self.embedding.random_(2)
-                self.embedding = self.embedding.cuda()
-            else:
-                self.embedding = self.CpuTensor(self.n, self.dim)
-                self.embedding.random_(2)
+                try:
+                    self.embedding = self.embedding.cuda()
+                except RuntimeError as e:
+                    self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
             self.logger.info("Random initialization took " + str(time.time() - begin))
             self.embedding, _ = util.normalize(self.embedding)
         else:
@@ -190,8 +190,13 @@ class Embedding(object):
         begin = time.time()
 
         if self.matgpu:
-            self.mat = self.cooccurrence.cuda()
-        else:
+            try:
+                self.mat = self.cooccurrence.cuda()
+            except RuntimeError as e:
+                self.logger.warn("Cooccurrence matrix does not fit on GPU. Storing on CPU instead.")
+            self.matgpu = False
+
+        if not self.matgpu:
             self.mat = self.cooccurrence.clone()
 
         if mode == "none":
@@ -199,7 +204,6 @@ class Embedding(object):
         elif mode == "log1p":
             self.mat._values().log1p_()
         elif mode == "ppmi":
-            a = time.time()
 
             wc = util.sum_rows(self.mat)
 
@@ -227,10 +231,7 @@ class Embedding(object):
         if self.gpu and not self.matgpu:
             ind = self.mat._indices().t().pin_memory().t()
             v = self.mat._values().pin_memory()
-            if self.mat.is_cuda:
-                self.mat = tensor_type.to_gpu(tensor_type.to_sparse(self.CpuTensor))(ind, v, torch.Size([self.n, self.n]))
-            else:
-                self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
+            self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
 
         self.logger.info("Preprocessing took " + str(time.time() - begin))
 
