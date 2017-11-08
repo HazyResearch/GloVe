@@ -194,7 +194,7 @@ class Embedding(object):
                 self.mat = self.cooccurrence.cuda()
             except RuntimeError as e:
                 self.logger.warn("Cooccurrence matrix does not fit on GPU. Storing on CPU instead.")
-            self.matgpu = False
+                self.matgpu = False
 
         if not self.matgpu:
             self.mat = self.cooccurrence.clone()
