@@ -66,7 +66,7 @@ def main(argv=None):
         embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing, args.negative, args.alpha)
         embedding.load_vectors(args.initial, args.initialbias)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
-        embedding.save_to_file(args.vectors)
+        embedding.save_to_text(args.vectors)
     elif args.task == "evaluate":
         evaluate.evaluate(args.vocab, args.vectors)
 
@@ -117,7 +117,7 @@ class Embedding(object):
             data = np.fromfile(cooccurrence_file, dtype=dt)
             ind = torch.IntTensor(data["ind"].transpose()).type(torch.LongTensor) - 1
             val = self.CpuTensor(data["val"])
-            self.cooccurrence = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size([self.n, self.n]))
+            self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size([self.n, self.n]))
             # TODO: coalescing is very slow, and the cooccurrence matrix is
             # almost always coalesced, but this might not be safe
             # self.cooccurrence = self.cooccurrence.coalesce()
@@ -150,6 +150,7 @@ class Embedding(object):
                     self.embedding = self.embedding.cuda()
                 except RuntimeError as e:
                     self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
+                    self.embedgpu = False
             self.logger.info("Random initialization took " + str(time.time() - begin))
             self.embedding, _ = util.normalize(self.embedding)
         else:
@@ -167,7 +168,7 @@ class Embedding(object):
             self.logger.info("Loading initial vectors took " + str(time.time() - begin))
 
         if self.gpu and not self.embedgpu:
-            self.embedding = self.embedding.pin_memory()
+            self.embedding = self.embedding.t().pin_memory().t()
 
         if initial_bias is not None:
             # TODO: merge this with init bias in glove
@@ -191,47 +192,60 @@ class Embedding(object):
 
         if self.matgpu:
             try:
-                self.mat = self.cooccurrence.cuda()
+                self.mat = self.mat.cuda()
+                logging.debug("Copying coocurrence to GPU took " + str(time.time() - begin))
             except RuntimeError as e:
                 self.logger.warn("Cooccurrence matrix does not fit on GPU. Storing on CPU instead.")
                 self.matgpu = False
-
-        if not self.matgpu:
-            self.mat = self.cooccurrence.clone()
 
         if mode == "none":
             pass
         elif mode == "log1p":
             self.mat._values().log1p_()
         elif mode == "ppmi":
+            s = time.time()
 
             wc = util.sum_rows(self.mat)
+            logging.debug("Summing rows took " + str(time.time() - s)); s = time.time()
 
             D = torch.sum(wc.pow(alpha))  # total dictionary size
+            logging.debug("Computing D took " + str(time.time() - s)); s = time.time()
 
             # TODO: pytorch doesn't seem to only allow indexing by 2D tensor
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
             wc1 = wc[self.mat._indices()[1, :]].squeeze()
+            logging.debug("Getting word counts took " + str(time.time() - s)); s = time.time()
 
             ind = self.mat._indices()
             v = self.mat._values()
             nnz = v.shape[0]
             v = torch.log(v) + (math.log(D) - math.log(negative)) - torch.log(wc0) - alpha * torch.log(wc1)
+            logging.debug("Computing PMI took " + str(time.time() - s)); s = time.time()
+
             v = v.clamp(min=0)
+            logging.debug("Clamping took " + str(time.time() - s)); s = time.time()
 
-            keep = v.nonzero().squeeze(1)
-            if keep.shape[0] != v.shape[0]:
-                ind = ind[:, keep]
-                v = v[keep]
-                self.logger.info("nnz after ppmi processing: " + str(keep.shape[0]))
+            if self.mat.is_cuda:
+                # This code is able to run on CPU, but is very slow
+                # Currently is not worth the processing time
+                # TODO: speed this up on CPU
+                keep = v.nonzero().squeeze(1)
+                logging.debug("Finding non-zeros took " + str(time.time() - s)); s = time.time()
+                if keep.shape[0] != v.shape[0]:
+                    ind = ind[:, keep]
+                    v = v[keep]
+                    self.logger.info("nnz after ppmi processing: " + str(keep.shape[0]))
 
-                self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
+                    self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
+                logging.debug("Filtering non-zeros took " + str(time.time() - s)); s = time.time()
             # self.mat = self.mat.coalesce()
 
         if self.gpu and not self.matgpu:
+            s = time.time()
             ind = self.mat._indices().t().pin_memory().t()
             v = self.mat._values().pin_memory()
             self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
+            logging.debug("Pinning cooccurrence matrix took " + str(time.time() - s))
 
         self.logger.info("Preprocessing took " + str(time.time() - begin))
 
@@ -294,7 +308,7 @@ class Embedding(object):
         embedding = embedding.numpy()
         return evaluate.evaluate(self.words, {self.words[i]: embedding[i, :] for i in range(len(self.words))})
 
-    def save_to_file(self, filename):
+    def save_to_text(self, filename):
         begin = time.time()
         with open(filename, "w") as f:
             for i in range(self.n):
