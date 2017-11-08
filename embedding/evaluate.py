@@ -152,13 +152,18 @@ def evaluate_vectors_sim(W, vocab, ivocab):
     data = [row for row in data if (row[0] in vocab and row[1] in vocab)]
     words = np.array([[vocab[row[0]], vocab[row[1]]] for row in data])
     score = np.array([float(row[2]) for row in data])
+
     pred = np.sum(np.multiply(W[words[:, 0], :], W[words[:, 1], :]), 1)
-
-    rho, p = scipy.stats.spearmanr(score, pred)
+    rho_dot, p = scipy.stats.spearmanr(score, pred)
     logger = logging.getLogger(__name__)
-    logger.info("WordSimilarity-353 Spearman Correlation: %.3f\n" % rho)
+    logger.info("WordSimilarity-353 Spearman Correlation (dot): %.3f\n" % rho_dot)
 
-    return rho
+    pred = np.sum(np.multiply(W[words[:, 0], :], W[words[:, 1], :]), 1) / np.sum(np.multiply(W[words[:, 0], :], W[words[:, 0], :]), 1) / np.sum(np.multiply(W[words[:, 1], :], W[words[:, 1], :]), 1)
+    rho_cos, p = scipy.stats.spearmanr(score, pred)
+    logger = logging.getLogger(__name__)
+    logger.info("WordSimilarity-353 Spearman Correlation (cos): %.3f\n" % rho_cos)
+
+    return rho_dot, rho_cos
 
 
 def evaluate_human_sim():
