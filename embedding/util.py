@@ -52,10 +52,14 @@ def normalize(x, x0=None):
     try:
         temp, r = torch.qr(x)
     except RuntimeError as e:
-        logger.error("QR decomposition has run into a problem\n"
+        logger.error("QR decomposition has run into a problem.\n"
                      "Older versions of pytoch had a memory leak in QR:\n"
                      "    https://github.com/pytorch/pytorch/issues/3009\n"
-                     "Updating pytorch may fix this issue.")
+                     "Updating PyTorch may fix this issue.\n"
+                     "\n"
+                     "This issue can also be avoided by running QR on CPU.\n"
+                     "This can be enabled with the flag `--embedgpu false`\n"
+                     )
         raise e
     if np.isnan(torch.sum(temp)):
         # qr seems to occassionally be unstable and result in nan
