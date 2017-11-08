@@ -63,7 +63,7 @@ def main(argv=None):
                         "Defaulting to \"float\".")
 
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
-        embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing)
+        embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing, args.negative, args.alpha)
         embedding.load_vectors(args.initial, args.initialbias)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
         embedding.save_to_file(args.vectors)
@@ -89,7 +89,7 @@ class Embedding(object):
 
         self.logger = logging.getLogger(__name__)
 
-    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.bin", preprocessing="none"):
+    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.bin", preprocessing="none", negative=1., alpha=1.):
         begin = time.time()
 
         if True: # TODO
@@ -124,7 +124,7 @@ class Embedding(object):
             self.logger.info("Loading cooccurrence matrix took " + str(time.time() - begin))
 
             # Preprocess cooccurrence matrix
-            self.preprocessing(preprocessing)
+            self.preprocessing(preprocessing, negative, alpha)
 
             if not self.gpu:
                 begin = time.time()
@@ -186,7 +186,7 @@ class Embedding(object):
         else:
             self.bias = None
 
-    def preprocessing(self, mode="ppmi"):
+    def preprocessing(self, mode="ppmi", negative=1., alpha=1.):
         begin = time.time()
 
         if self.matgpu:
@@ -203,7 +203,7 @@ class Embedding(object):
 
             wc = util.sum_rows(self.mat)
 
-            D = torch.sum(wc)  # total dictionary size
+            D = torch.sum(wc.pow(alpha))  # total dictionary size
 
             # TODO: pytorch doesn't seem to only allow indexing by 2D tensor
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
@@ -212,7 +212,7 @@ class Embedding(object):
             ind = self.mat._indices()
             v = self.mat._values()
             nnz = v.shape[0]
-            v = torch.log(v) + math.log(D) - torch.log(wc0) - torch.log(wc1)
+            v = torch.log(v) + (math.log(D) - math.log(negative)) - torch.log(wc0) - alpha * torch.log(wc1)
             v = v.clamp(min=0)
 
             keep = v.nonzero().squeeze(1)
