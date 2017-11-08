@@ -49,6 +49,10 @@ def get_parser():
     compute_parser.add_argument("-p", "--preprocessing", type=str.lower, default="ppmi",
                                 choices=["none", "log1p", "ppmi"],
                                 help="Preprocessing of cooccurrence matrix before eigenvector computation")
+    compute_parser.add_argument("--negative", type=float, default=1.,
+                                help="Number of negative samples (for shifted PMI)")
+    compute_parser.add_argument("--alpha", type=float, default=1.,
+                                help="Context distribution smoothing parameter")
 
     compute_parser.add_argument("-s", "--solver", type=str.lower, default="pi",
                                 choices=["pi", "alecton", "vr", "sgd", "glove", "sparsesvd", "gemsim"],
