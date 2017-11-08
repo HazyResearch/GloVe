@@ -28,7 +28,7 @@ def main(argv=None):
     args = parser.get_parser().parse_args(argv)
 
     # Set up logging for package
-    logging_config.init(args.logging)
+    logging_config.init_logging(args.logging)
     logger = logging.getLogger(__name__)
 
     if args.task == "cooccurrence":

@@ -4,7 +4,7 @@ import logging
 import logging.config
 
 
-def init(level):
+def init_logging(level=logging.INFO):
     cfg = dict(
               version=1,
               formatters={
@@ -14,12 +14,16 @@ def init(level):
                         "%m/%d %H:%M:%S"}
                   },
               handlers={
-                  "h": {"class": "logging.StreamHandler",
+                  "s": {"class": "logging.StreamHandler",
                         "formatter": "f",
-                        "level": level}
+                        "level": level},
+                  "f": {"class": "logging.FileHandler",
+                        "formatter": "f",
+                        "level": logging.NOTSET,
+                        "filename": "embedding.log"}
                   },
               root={
-                  "handlers": ["h"],
+                  "handlers": ["s", "f"],
                   "level": level
                   },
           )
