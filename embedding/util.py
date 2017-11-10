@@ -212,36 +212,3 @@ def sum_rows(A):
             return ans
         return tensor_type.to_dense(A.type())(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
         # return torch.from_numpy(scipy.sparse.coo_matrix((A._values().numpy(), (A._indices()[0, :].numpy(), A._indices()[1, :].numpy())), shape=A.shape).sum(1)).squeeze()
-
-
-def is_sorted(mat):
-    begin = time.time()
-    @numba.jit(nopython=True, cache=True)
-    def s(indices):
-        row = indices[0, :]
-        col = indices[1, :]
-        for i in range(1, indices.shape[1]):
-            if (row[i - 1] > row[i]) or ((row[i - 1] == row[i]) and (col[i - 1] > col[i])):
-                return False
-        return True
-    ans = s(mat._indices().numpy())
-    logging.getLogger(__name__).debug("Checking sort took " + str(time.time() - begin))
-    return ans
-
-
-def sorted_to_csr(mat):
-    data = mat._values().numpy()
-    row = mat._indices()[0, :].numpy()
-    indices = mat._indices()[1, :].numpy()
-
-    @numba.jit(nopython=True, cache=True)
-    def row_to_indptr(row, indptr):
-        for r in row:
-            indptr[r + 1] += 1
-    indptr = np.zeros(mat.shape[0] + 1, np.int)
-    row_to_indptr(row, indptr)
-    np.cumsum(indptr, out=indptr)
-    print(data.shape)
-    print(indices.shape)
-    print(indptr.shape)
-    return scipy.sparse.csc_matrix((data, indices, indptr), mat.shape)
