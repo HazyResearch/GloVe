@@ -27,12 +27,9 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=Fa
             x, x0 = util.mm(mat, x, gpu) - beta * x0, x
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
-        if (i + 1) % norm_freq == 0:
+        if ((i + 1) % norm_freq == 0 or
+            (i + 1) == iterations):
             x, x0 = util.normalize(x, x0)
-
-    if iterations % norm_freq != 0:
-        # Only normalize if the last iteration did not
-        x, x0 = util.normalize(x, x0)
 
     return x, x0
 
@@ -77,12 +74,9 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
         end = time.time()
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
-        if (i + 1) % norm_freq == 0:
+        if ((i + 1) % norm_freq == 0 or
+            (i + 1) == iterations):
             x, _ = util.normalize(x, None)
-
-    if iterations % norm_freq != 0:
-        # Only normalize if the last iteration did not
-        x, _ = util.normalize(x, None)
 
     return x
 
@@ -126,12 +120,9 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
 
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
-        if (i + 1) % norm_freq == 0:
+        if ((i + 1) % norm_freq == 0 or
+            (i + 1) == iterations):
             x, x0 = util.normalize(x, x0)
-
-    if iterations % norm_freq != 0:
-        # Only normalize if the last iteration did not
-        x, x0 = util.normalize(x, x0)
 
     return x, x0
 
