@@ -254,6 +254,10 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
 
 def sparseSVD(mat, dim):
     begin = time.time()
+    mat = mat.tocsc()
+    logging.info("CSC conversion took " + str(time.time() - begin))
+
+    begin = time.time()
     u, s, v = sparsesvd.sparsesvd(mat, dim)
     logging.info("Solving took " + str(time.time() - begin))
 

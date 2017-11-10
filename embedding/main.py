@@ -127,9 +127,15 @@ class Embedding(object):
             self.preprocessing(preprocessing, negative, alpha)
 
             if not self.gpu:
-                begin = time.time()
-                self.mat = scipy.sparse.csc_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
-                self.logger.info("CSC conversion took " + str(time.time() - begin))
+                if util.is_sorted(self.mat):
+                    begin = time.time()
+                    self.mat = util.sorted_to_csr(self.mat)
+                    self.logger.info("CSR conversion took " + str(time.time() - begin))
+                else:
+                    begin = time.time()
+                    self.logger.warn("Cooccurrence matrix is not sorted - using slower construction. Use unshuffled cooccurrence matrix if available.")
+                    self.mat = scipy.sparse.csr_matrix((self.mat._values().numpy(), (self.mat._indices()[0, :].numpy(), self.mat._indices()[1, :].numpy())), shape=(self.n, self.n))
+                    self.logger.info("CSR conversion took " + str(time.time() - begin))
 
             # TODO: dump to file
         else:
