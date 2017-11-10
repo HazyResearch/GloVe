@@ -266,10 +266,21 @@ class Embedding(object):
             if checkpoint_every > 0 and (i + 1) % checkpoint_every == 0:
                 util.save_to_text(checkpoint_root + "." + str(i + 1) + ".txt", x, self.words)
 
+        if (mode == "alecton" or
+            mode == "vr" or
+            mode == "sgd"):
+            if (type(self.mat) == scipy.sparse.csr.csr_matrix or
+                type(self.mat) == scipy.sparse.coo.coo_matrix or
+                type(self.mat) == scipy.sparse.csc.csc_matrix):
+                self.mat = self.mat.tocoo()
+                ind = torch.from_numpy(np.array([self.mat.row, self.mat.col])).type(torch.LongTensor)
+                val = self.CpuTensor(self.mat.data)
+                self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size(self.mat.shape))
+
         if mode == "pi":
             self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu, checkpoint=checkpoint)
         elif mode == "alecton":
-            self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
+            self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, gpu=gpu, batch=batch)
         elif mode == "vr":
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
         elif mode == "sgd":

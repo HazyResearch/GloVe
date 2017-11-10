@@ -36,21 +36,15 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=Fa
     return x, x0
 
 
-def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
+def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000, gpu=False, checkpoint=lambda x, i: None):
 
     logger = logging.getLogger(__name__)
 
     # TODO: alecton will need a lot more iterations (since one iteration does
     #       much less work) -- clean way to have different defaults?
     n = mat.shape[0]
-    nnz, = mat._values().shape
+    nnz = mat._nnz()
     batch = min(batch, nnz)
-
-    # ind = torch.LongTensor(np.random.choice(n, [1, batch], False).repeat(2, 0))
-    # v = torch.DoubleTensor(batch).fill_(n / float(batch))
-    # samples = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
-    # if mat.is_cuda:
-    #     samples = samples.cuda()
 
     rng = torch.FloatTensor(batch)  # TODO: seems like theres no long random on cuda
     if mat.is_cuda:
@@ -66,10 +60,7 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
             elements = rng.type(torch.LongTensor)
         ind = mat._indices()[:, elements]
         v = mat._values()[elements]
-        if mat.is_cuda:
-            sample = torch.cuda.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
-        else:
-            sample = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
+        sample = type(mat)(ind, v, torch.Size([n, n]))
         sample = nnz / float(batch) * sample
 
         x += eta * torch.mm(sample, x)
@@ -79,6 +70,8 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
         if ((i + 1) % norm_freq == 0 or
             (i + 1) == iterations):
             x, _ = util.normalize(x, None)
+
+        checkpoint(x, i)
 
     return x
 
