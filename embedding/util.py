@@ -212,3 +212,13 @@ def sum_rows(A):
             return ans
         return tensor_type.to_dense(A.type())(sr(A.shape[0], A._indices().numpy(), A._values().numpy()))
         # return torch.from_numpy(scipy.sparse.coo_matrix((A._values().numpy(), (A._indices()[0, :].numpy(), A._indices()[1, :].numpy())), shape=A.shape).sum(1)).squeeze()
+
+
+def save_to_text(filename, embedding, words):
+    begin = time.time()
+    embedding = embedding.cpu()
+    n, dim = embedding.shape
+    with open(filename, "w") as f:
+        for i in range(n):
+            f.write(words[i] + " " + " ".join([str(embedding[i, j]) for j in range(dim)]) + "\n")
+    logging.getLogger(__name__).info("Saving embeddings: " + str(time.time() - begin))

@@ -65,7 +65,7 @@ def main(argv=None):
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
         embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing, args.negative, args.alpha)
         embedding.load_vectors(args.initial, args.initialbias)
-        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
+        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop, checkpoint_every=args.checkpoint, checkpoint_root=args.vectors)
         embedding.save_to_text(args.vectors)
     elif args.task == "evaluate":
         evaluate.evaluate(args.vocab, args.vectors)
@@ -249,7 +249,7 @@ class Embedding(object):
 
         self.logger.info("Preprocessing took " + str(time.time() - begin))
 
-    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, batch=100000, innerloop=10):
+    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, batch=100000, innerloop=10, checkpoint_every=0, checkpoint_root=""):
         if momentum == 0.:
             prev = None
         else:
@@ -259,8 +259,15 @@ class Embedding(object):
                 prev = self.CpuTensor(self.n, self.dim)
             prev.zero_()
 
+        if checkpoint_root[-4:] == ".txt":
+            checkpoint_root = checkpoint_root[:-4]
+
+        def checkpoint(x, i):
+            if checkpoint_every > 0 and (i + 1) % checkpoint_every == 0:
+                util.save_to_text(checkpoint_root + "." + str(i + 1) + ".txt", x, self.words)
+
         if mode == "pi":
-            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu)
+            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu, checkpoint=checkpoint)
         elif mode == "alecton":
             self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
         elif mode == "vr":
@@ -309,11 +316,7 @@ class Embedding(object):
         return evaluate.evaluate(self.words, {self.words[i]: embedding[i, :] for i in range(len(self.words))})
 
     def save_to_text(self, filename):
-        begin = time.time()
-        with open(filename, "w") as f:
-            for i in range(self.n):
-                f.write(self.words[i] + " " + " ".join([str(self.embedding[i, j]) for j in range(self.dim)]) + "\n")
-        self.logger.info("Saving embeddings: " + str(time.time() - begin))
+        util.save_to_text(filename, self.embedding, self.words)
 
 if __name__ == "__main__":
     main(sys.argv)

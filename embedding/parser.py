@@ -45,6 +45,8 @@ def get_parser():
                                 help="filename for embedding vectors output")
     compute_parser.add_argument("--bias", type=str, default="bias.txt",
                                 help="filename for bias output")
+    compute_parser.add_argument("--checkpoint", type=int, default=0,
+                                help="frequency of saving intermediate computations (0 to turn off)")
 
     compute_parser.add_argument("-p", "--preprocessing", type=str.lower, default="ppmi",
                                 choices=["none", "log1p", "ppmi"],

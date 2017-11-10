@@ -15,7 +15,7 @@ import embedding.util as util
 # TODO: automatically match defaults from cmd line?
 
 
-def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=False):
+def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=False, checkpoint=lambda x, i: None):
 
     logger = logging.getLogger(__name__)
 
@@ -30,6 +30,8 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=Fa
         if ((i + 1) % norm_freq == 0 or
             (i + 1) == iterations):
             x, x0 = util.normalize(x, x0)
+
+        checkpoint(x, i)
 
     return x, x0
 
