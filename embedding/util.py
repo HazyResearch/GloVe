@@ -222,3 +222,34 @@ def save_to_text(filename, embedding, words):
         for i in range(n):
             f.write(words[i] + " " + " ".join([str(embedding[i, j]) for j in range(dim)]) + "\n")
     logging.getLogger(__name__).info("Saving embeddings: " + str(time.time() - begin))
+
+
+def get_sampler(mat, batch, scheme="element", random=True):
+    n = mat.shape[0]
+    nnz = mat._nnz()
+    batch = min(batch, nnz)
+
+    if mat.is_cuda:
+        t = torch.cuda
+    else:
+        t = torch
+
+    if random:
+        while True:
+            if scheme == "element":
+                # TODO: seems like theres no long random
+                elements = t.FloatTensor(n).uniform_(0, nnz).type(t.LongTensor)
+            ind = mat._indices()[:, elements]
+            v = mat._values()[elements]
+            yield type(mat)(ind, v, torch.Size([n, n]))
+    else:
+        start = 0
+        while True:
+            end = start + batch
+
+            if scheme == "element":
+                elements = torch.arange(start, end).type(t.LongTensor) % nnz
+                start = end % nnz
+            ind = mat._indices()[:, elements]
+            v = mat._values()[elements]
+            yield type(mat)(ind, v, torch.Size([n, n]))

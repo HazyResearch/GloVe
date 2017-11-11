@@ -36,34 +36,24 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=Fa
     return x, x0
 
 
-def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000, gpu=False, checkpoint=lambda x, i: None):
+def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, sample=None, gpu=False, checkpoint=lambda x, i: None):
 
     logger = logging.getLogger(__name__)
+
+    if sample is None:
+        sample = util.get_sampler(mat, 100000)
 
     # TODO: alecton will need a lot more iterations (since one iteration does
     #       much less work) -- clean way to have different defaults?
     n = mat.shape[0]
     nnz = mat._nnz()
-    batch = min(batch, nnz)
-
-    rng = torch.FloatTensor(batch)  # TODO: seems like theres no long random on cuda
-    if mat.is_cuda:
-        rng = rng.cuda()
 
     for i in range(iterations):
         begin = time.time()
-        # x += eta * torch.mm(torch.spmm(samples, mat), x)
-        rng.uniform_(nnz)
-        if mat.is_cuda:  # TODO: way to do this without cases?
-            elements = rng.type(torch.cuda.LongTensor)
-        else:
-            elements = rng.type(torch.LongTensor)
-        ind = mat._indices()[:, elements]
-        v = mat._values()[elements]
-        sample = type(mat)(ind, v, torch.Size([n, n]))
-        sample = nnz / float(batch) * sample
 
-        x += eta * torch.mm(sample, x)
+        m = next(sample)
+
+        x += eta * util.mm(m, x)
         end = time.time()
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
