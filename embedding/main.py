@@ -65,7 +65,7 @@ def main(argv=None):
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
         embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing, args.negative, args.alpha)
         embedding.load_vectors(args.initial, args.initialbias)
-        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, innerloop=args.innerloop, checkpoint_every=args.checkpoint, checkpoint_root=args.vectors)
+        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, innerloop=args.innerloop, batch=args.batch, scheme=args.scheme, sequential=args.sequential, checkpoint_every=args.checkpoint, checkpoint_root=args.vectors)
         embedding.save_to_text(args.vectors)
     elif args.task == "evaluate":
         evaluate.evaluate(args.vocab, args.vectors)
@@ -249,7 +249,7 @@ class Embedding(object):
 
         self.logger.info("Preprocessing took " + str(time.time() - begin))
 
-    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, batch=100000, innerloop=10, checkpoint_every=0, checkpoint_root=""):
+    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, innerloop=10, batch=100000, scheme="element", sequential=True, checkpoint_every=0, checkpoint_root=""):
         if momentum == 0.:
             prev = None
         else:
@@ -277,10 +277,12 @@ class Embedding(object):
                 val = self.CpuTensor(self.mat.data)
                 self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size(self.mat.shape))
 
+            sample = util.get_sampler(self.mat, batch, scheme, sequential)
+
         if mode == "pi":
             self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu, checkpoint=checkpoint)
         elif mode == "alecton":
-            self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, gpu=gpu)
+            self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, sample=sample, gpu=gpu, checkpoint=checkpoint)
         elif mode == "vr":
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
         elif mode == "sgd":

@@ -8,6 +8,7 @@ import sys
 import argparse
 import logging
 import scipy
+import scipy.sparse
 
 import embedding.tensor_type as tensor_type
 
@@ -224,25 +225,25 @@ def save_to_text(filename, embedding, words):
     logging.getLogger(__name__).info("Saving embeddings: " + str(time.time() - begin))
 
 
-def get_sampler(mat, batch, scheme="element", random=True):
+def get_sampler(mat, batch, scheme="element", sequential=True):
     n = mat.shape[0]
     nnz = mat._nnz()
-    batch = min(batch, nnz)
 
     if mat.is_cuda:
         t = torch.cuda
+        gpu = True
     else:
         t = torch
+        gpu = False
 
-    if random:
-        while True:
-            if scheme == "element":
-                # TODO: seems like theres no long random
-                elements = t.FloatTensor(n).uniform_(0, nnz).type(t.LongTensor)
-            ind = mat._indices()[:, elements]
-            v = mat._values()[elements]
-            yield type(mat)(ind, v, torch.Size([n, n]))
+    if scheme == "element":
+        batch = min(batch, nnz)
+        scale = nnz / float(batch)
     else:
+        batch = min(batch, n)
+        scale = n / float(batch)
+
+    if sequential:
         start = 0
         while True:
             end = start + batch
@@ -250,6 +251,53 @@ def get_sampler(mat, batch, scheme="element", random=True):
             if scheme == "element":
                 elements = torch.arange(start, end).type(t.LongTensor) % nnz
                 start = end % nnz
+            elif scheme == "row":
+                row = mat._indices()[0, :]
+                # PyTorch doesn't seem to have element-wise logical operators
+                # * is equivalent to and
+                # + is equivalent to or
+                elements = (((start <= row) * (row < end)) +
+                            ((start <= row + n) * (row + n < end))).nonzero().squeeze()
+                start = end % n
+            elif scheme == "column":
+                col = mat._indices()[1, :]
+                elements = (((start <= col) * (col < end)) +
+                            ((start <= col + n) * (col + n < end))).nonzero().squeeze()
+                start = end % n
             ind = mat._indices()[:, elements]
             v = mat._values()[elements]
-            yield type(mat)(ind, v, torch.Size([n, n]))
+            yield scale * type(mat)(ind, v, mat.shape)
+    else:
+        if scheme == "row" or scheme == "column":
+            mat = mat.cpu()
+            data = mat._values().numpy()
+            row = mat._indices()[0, :].numpy()
+            col = mat._indices()[1, :].numpy()
+            if scheme == "row":
+                m = scipy.sparse.csr_matrix((data, (row, col)), mat.shape)
+            if scheme == "column":
+                m = scipy.sparse.csc_matrix((data, (row, col)), mat.shape)
+
+        while True:
+            if scheme == "element":
+                # TODO: seems like theres no long random
+                elements = t.FloatTensor(n).uniform_(0, nnz).type(t.LongTensor)
+                ind = mat._indices()[:, elements]
+                v = mat._values()[elements]
+                yield scale * type(mat)(ind, v, mat.shape)
+            elif scheme == "row" or scheme == "column":
+                rc = np.random.randint(0, n, batch)
+                if scheme == "row":
+                    sample = m[rc, :].tocoo()
+                    row = rc[sample.row]
+                    col = sample.col
+                else:
+                    sample = m[:, rc].tocoo()
+                    row = sample.row
+                    col = rc[sample.col]
+                ind =  torch.from_numpy(np.array([row, col])).type(torch.LongTensor)
+                v = torch.from_numpy(m[rc].data)
+                sample = scale * type(mat)(ind, v, mat.shape)
+                if gpu:
+                    sample = sample.cuda()
+                yield sample

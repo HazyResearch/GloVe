@@ -53,7 +53,7 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, sample=None, gpu=False
 
         m = next(sample)
 
-        x += eta * util.mm(m, x)
+        x = (1 - eta) * x + eta * util.mm(m, x)
         end = time.time()
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
