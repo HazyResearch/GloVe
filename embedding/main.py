@@ -238,8 +238,8 @@ class Embedding(object):
                     v = v[keep]
                     self.logger.info("nnz after ppmi processing: " + str(keep.shape[0]))
 
-                    self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
                 logging.debug("Filtering non-zeros took " + str(time.time() - s)); s = time.time()
+            self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
             # self.mat = self.mat.coalesce()
 
         if self.gpu and not self.matgpu:
