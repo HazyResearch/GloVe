@@ -28,6 +28,8 @@ install:
   - pip install .
 
 script:
+  - python test/test_sampling.py
+  - python test/test_tensor_type_conversion.py
   - cd embedding/data/cooccurrence/wikipedia_sample
   - embedding compute -i 5
   - embedding evaluate
@@ -43,5 +45,3 @@ script:
   - embedding evaluate
   - embedding compute --solver glove --preprocessing none --scale 0 -i 5
   - embedding evaluate
-  - python test/test_sampling.py
-  - python test/test_tensor_type_conversion.py
