@@ -14,13 +14,13 @@ import embedding
 sns.set(style="whitegrid", color_codes=True)
 
 ref = embedding.Embedding(gpu=False)
-ref.load_vectors("output/pi.1000.txt")
+ref.load_vectors("output/pi.5000.txt")
 ref.embedding /= ref.embedding.norm(2, 0).expand_as(ref.embedding)
 dim = ref.embedding.shape[1]
 
 method = {
           "Power Iteration": "pi",
-          # "Power Iteration with Momentum": "pim"
+          "Power Iteration with Momentum": "pim"
          }
 
 l1 = {} # First component loss
@@ -28,7 +28,7 @@ l2 = {} # Second component loss
 lw = {} # Worst component loss
 
 for m in method:
-    it = [i + 1 for i in range(1000)]
+    it = [i + 1 for i in range(10)]
 
     e = embedding.Embedding(gpu=False)
 
@@ -49,7 +49,7 @@ for m in method:
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
-plot.title("Estimation of First Eigenvector")
+plt.title("Estimation of First Eigenvector")
 plt.savefig("first.pdf", dpi=300)
 
 plt.figure(2)
@@ -58,7 +58,7 @@ for m in method:
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
-plot.title("Estimation of Second Eigenvector")
+plt.title("Estimation of Second Eigenvector")
 plt.savefig("second.pdf", dpi=300)
 
 plt.figure(3)
@@ -67,5 +67,5 @@ for m in method:
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
-plot.title("Estimation of Worst Eigenvector")
+plt.title("Estimation of Worst Eigenvector")
 plt.savefig("worst.pdf", dpi=300)
