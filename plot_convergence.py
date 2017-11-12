@@ -43,20 +43,13 @@ for m in method:
         l2[m].append(1 - abs(torch.dot(ref.embedding[:, 1], e.embedding[:, 1])))
         lw[m].append(1 - abs(min([torch.dot(ref.embedding[:, i], e.embedding[:, i]) for i in range(dim)])))
 
-    # for i in range(1, 10 + 1):
-    #     data = data.append(pd.DataFrame([[i, i * len(m), m]], columns=["Iterations", "Loss", "Method"]))
-# print(data)
-
-# obj = sns.pointplot(x="Iterations", y="Loss", hue="Method", data=data, markers="", linestyle="-");
-# figure, ax = plt.subplots(1, 1)
-# figure = obj.get_figure()
-# figure.savefig("convergence.pdf", dpi=300)
 plt.figure(1)
 for m in method:
     plt.semilogy(it, l1[m], label=m)
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
+plot.title("Estimation of First Eigenvector")
 plt.savefig("first.pdf", dpi=300)
 
 plt.figure(2)
@@ -65,6 +58,7 @@ for m in method:
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
+plot.title("Estimation of Second Eigenvector")
 plt.savefig("second.pdf", dpi=300)
 
 plt.figure(3)
@@ -73,4 +67,5 @@ for m in method:
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
+plot.title("Estimation of Worst Eigenvector")
 plt.savefig("worst.pdf", dpi=300)

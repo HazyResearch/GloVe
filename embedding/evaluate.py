@@ -37,7 +37,7 @@ def evaluate(words, vectors):
 
     score = {}
     # evaluate_human_sim()
-    score["similarity"] = evaluate_vectors_sim(W, vocab, ivocab)
+    score["similarity-dot"], score["similarity-cos"] = evaluate_vectors_sim(W, vocab, ivocab)
     score["analogy-add"] = evaluate_vectors_analogy(W_norm, vocab, ivocab, "add")
     score["analogy-mul"] = evaluate_vectors_analogy(W_norm, vocab, ivocab, "mul")
 
