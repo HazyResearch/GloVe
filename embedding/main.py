@@ -31,6 +31,8 @@ def main(argv=None):
     logging_config.init_logging(args.logging)
     logger = logging.getLogger(__name__)
 
+    logger.debug(args)
+
     if args.task == "cooccurrence":
         subprocess.call([os.path.join(os.path.dirname(__file__), "..", "cooccurrence.sh"), args.text])
     elif args.task == "compute":
