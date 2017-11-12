@@ -249,7 +249,7 @@ def get_sampler(mat, batch, scheme="element", sequential=True):
             end = start + batch
 
             if scheme == "element":
-                elements = torch.arange(start, end).type(t.LongTensor) % nnz
+                elements = torch.arange(start, end, out=torch.LongTensor()) % nnz
                 start = end % nnz
             elif scheme == "row":
                 row = mat._indices()[0, :]
