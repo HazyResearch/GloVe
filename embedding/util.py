@@ -281,6 +281,7 @@ def get_sampler(mat, batch, scheme="element", sequential=True):
         while True:
             if scheme == "element":
                 # TODO: seems like theres no long random
+                # TODO: this will probably not select some elements due to limited precision of float
                 elements = t.FloatTensor(n).uniform_(0, nnz).type(t.LongTensor)
                 ind = mat._indices()[:, elements]
                 v = mat._values()[elements]
