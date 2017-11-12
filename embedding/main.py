@@ -28,8 +28,10 @@ def main(argv=None):
     args = parser.get_parser().parse_args(argv)
 
     # Set up logging for package
-    logging_config.init(args.logging)
+    logging_config.init_logging(args.logging)
     logger = logging.getLogger(__name__)
+
+    logger.debug(args)
 
     if args.task == "cooccurrence":
         subprocess.call([os.path.join(os.path.dirname(__file__), "..", "cooccurrence.sh"), args.text])
@@ -41,8 +43,8 @@ def main(argv=None):
             args.matgpu = False
             args.embedgpu = False
 
-        if args.gpu and (args.solver == "sparsesvd" or args.solver == "gensim"):
-            logger.warn("SparseSVD and gensim are not implemented for GPU. "
+        if args.gpu and args.solver == "sparsesvd":
+            logger.warn("SparseSVD is not implemented for GPU. "
                         "Toggling off GPU use.")
             args.gpu = False
             args.matgpu = False
@@ -63,10 +65,10 @@ def main(argv=None):
                         "Defaulting to \"float\".")
 
         embedding = Embedding(args.dim, args.gpu, args.matgpu, args.embedgpu, CpuTensor)
-        embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing)
+        embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing, args.negative, args.alpha)
         embedding.load_vectors(args.initial, args.initialbias)
-        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, batch=args.batch, innerloop=args.innerloop)
-        embedding.save_to_file(args.vectors)
+        embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, innerloop=args.innerloop, batch=args.batch, scheme=args.scheme, sequential=args.sequential, checkpoint_every=args.checkpoint, checkpoint_root=args.vectors)
+        embedding.save_to_text(args.vectors)
     elif args.task == "evaluate":
         evaluate.evaluate(args.vocab, args.vectors)
 
@@ -89,7 +91,7 @@ class Embedding(object):
 
         self.logger = logging.getLogger(__name__)
 
-    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.shuf.bin", preprocessing="none"):
+    def load_cooccurrence(self, vocab_file="vocab.txt", cooccurrence_file="cooccurrence.bin", preprocessing="none", negative=1., alpha=1.):
         begin = time.time()
 
         if True: # TODO
@@ -117,14 +119,14 @@ class Embedding(object):
             data = np.fromfile(cooccurrence_file, dtype=dt)
             ind = torch.IntTensor(data["ind"].transpose()).type(torch.LongTensor) - 1
             val = self.CpuTensor(data["val"])
-            self.cooccurrence = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size([self.n, self.n]))
+            self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size([self.n, self.n]))
             # TODO: coalescing is very slow, and the cooccurrence matrix is
             # almost always coalesced, but this might not be safe
             # self.cooccurrence = self.cooccurrence.coalesce()
             self.logger.info("Loading cooccurrence matrix took " + str(time.time() - begin))
 
             # Preprocess cooccurrence matrix
-            self.preprocessing(preprocessing)
+            self.preprocessing(preprocessing, negative, alpha)
 
             if not self.gpu:
                 begin = time.time()
@@ -140,11 +142,17 @@ class Embedding(object):
         if initial_vectors is None:
             begin = time.time()
             # TODO: this initialization is really bad for sgd and glove
-            if self.embedgpu:
-                self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
-            else:
-                self.embedding = self.CpuTensor(self.n, self.dim)
+            # Older versions of PyTorch do not support random_ on GPU
+            # self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
+            # self.embedding.random_(2)
+            self.embedding = self.CpuTensor(self.n, self.dim)
             self.embedding.random_(2)
+            if self.embedgpu:
+                try:
+                    self.embedding = self.embedding.cuda()
+                except RuntimeError as e:
+                    self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
+                    self.embedgpu = False
             self.logger.info("Random initialization took " + str(time.time() - begin))
             self.embedding, _ = util.normalize(self.embedding)
         else:
@@ -162,7 +170,7 @@ class Embedding(object):
             self.logger.info("Loading initial vectors took " + str(time.time() - begin))
 
         if self.gpu and not self.embedgpu:
-            self.embedding = self.embedding.pin_memory()
+            self.embedding = self.embedding.t().pin_memory().t()
 
         if initial_bias is not None:
             # TODO: merge this with init bias in glove
@@ -181,55 +189,69 @@ class Embedding(object):
         else:
             self.bias = None
 
-    def preprocessing(self, mode="ppmi"):
+    def preprocessing(self, mode="ppmi", negative=1., alpha=1.):
         begin = time.time()
 
         if self.matgpu:
-            self.mat = self.cooccurrence.cuda()
-        else:
-            self.mat = self.cooccurrence.clone()
+            try:
+                self.mat = self.mat.cuda()
+                logging.debug("Copying coocurrence to GPU took " + str(time.time() - begin))
+            except RuntimeError as e:
+                self.logger.warn("Cooccurrence matrix does not fit on GPU. Storing on CPU instead.")
+                self.matgpu = False
 
         if mode == "none":
             pass
         elif mode == "log1p":
             self.mat._values().log1p_()
         elif mode == "ppmi":
-            a = time.time()
+            s = time.time()
 
             wc = util.sum_rows(self.mat)
+            logging.debug("Summing rows took " + str(time.time() - s)); s = time.time()
 
-            D = torch.sum(wc)  # total dictionary size
+            D = torch.sum(wc.pow(alpha))  # total dictionary size
+            logging.debug("Computing D took " + str(time.time() - s)); s = time.time()
 
             # TODO: pytorch doesn't seem to only allow indexing by 2D tensor
             wc0 = wc[self.mat._indices()[0, :]].squeeze()
             wc1 = wc[self.mat._indices()[1, :]].squeeze()
+            logging.debug("Getting word counts took " + str(time.time() - s)); s = time.time()
 
             ind = self.mat._indices()
             v = self.mat._values()
             nnz = v.shape[0]
-            v = torch.log(v) + math.log(D) - torch.log(wc0) - torch.log(wc1)
+            v = torch.log(v) + (math.log(D) - math.log(negative)) - torch.log(wc0) - alpha * torch.log(wc1)
+            logging.debug("Computing PMI took " + str(time.time() - s)); s = time.time()
+
             v = v.clamp(min=0)
+            logging.debug("Clamping took " + str(time.time() - s)); s = time.time()
 
-            keep = v.nonzero().squeeze(1)
-            if keep.shape[0] != v.shape[0]:
-                ind = ind[:, keep]
-                v = v[keep]
-                self.logger.info("nnz after ppmi processing: " + str(keep.shape[0]))
+            if self.mat.is_cuda:
+                # This code is able to run on CPU, but is very slow
+                # Currently is not worth the processing time
+                # TODO: speed this up on CPU
+                keep = v.nonzero().squeeze(1)
+                logging.debug("Finding non-zeros took " + str(time.time() - s)); s = time.time()
+                if keep.shape[0] != v.shape[0]:
+                    ind = ind[:, keep]
+                    v = v[keep]
+                    self.logger.info("nnz after ppmi processing: " + str(keep.shape[0]))
 
-                self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
+                    self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
+                logging.debug("Filtering non-zeros took " + str(time.time() - s)); s = time.time()
             # self.mat = self.mat.coalesce()
 
         if self.gpu and not self.matgpu:
+            s = time.time()
             ind = self.mat._indices().t().pin_memory().t()
             v = self.mat._values().pin_memory()
-            if self.mat.is_cuda:
-                self.mat = tensor_type.to_gpu(tensor_type.to_sparse(self.CpuTensor))(ind, v, torch.Size([self.n, self.n]))
-            else:
-                self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
+            self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, v, torch.Size([self.n, self.n]))
+            logging.debug("Pinning cooccurrence matrix took " + str(time.time() - s))
 
         self.logger.info("Preprocessing took " + str(time.time() - begin))
 
-    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, batch=100000, innerloop=10):
+    def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, innerloop=10, batch=100000, scheme="element", sequential=True, checkpoint_every=0, checkpoint_root=""):
         if momentum == 0.:
             prev = None
         else:
@@ -239,10 +261,30 @@ class Embedding(object):
                 prev = self.CpuTensor(self.n, self.dim)
             prev.zero_()
 
+        if checkpoint_root[-4:] == ".txt":
+            checkpoint_root = checkpoint_root[:-4]
+
+        def checkpoint(x, i):
+            if checkpoint_every > 0 and (i + 1) % checkpoint_every == 0:
+                util.save_to_text(checkpoint_root + "." + str(i + 1) + ".txt", x, self.words)
+
+        if (mode == "alecton" or
+            mode == "vr" or
+            mode == "sgd"):
+            if (type(self.mat) == scipy.sparse.csr.csr_matrix or
+                type(self.mat) == scipy.sparse.coo.coo_matrix or
+                type(self.mat) == scipy.sparse.csc.csc_matrix):
+                self.mat = self.mat.tocoo()
+                ind = torch.from_numpy(np.array([self.mat.row, self.mat.col])).type(torch.LongTensor)
+                val = self.CpuTensor(self.mat.data)
+                self.mat = tensor_type.to_sparse(self.CpuTensor)(ind, val, torch.Size(self.mat.shape))
+
+            sample = util.get_sampler(self.mat, batch, scheme, sequential)
+
         if mode == "pi":
-            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu)
+            self.embedding, _ = solver.power_iteration(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, gpu=gpu, checkpoint=checkpoint)
         elif mode == "alecton":
-            self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, batch=batch)
+            self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, sample=sample, gpu=gpu, checkpoint=checkpoint)
         elif mode == "vr":
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
         elif mode == "sgd":
@@ -253,8 +295,6 @@ class Embedding(object):
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=self.bias, iterations=iterations, eta=eta, batch=batch)
         elif mode == "sparsesvd":
             self.embedding = solver.sparseSVD(self.mat, self.dim)
-        elif mode == "gensim":
-            self.embedding = solver.glove(self.mat)
 
         self.scale(scale)
         if normalize:
@@ -272,7 +312,8 @@ class Embedding(object):
 
             # TODO: faster estimation of eigenvalues?
             temp = util.mm(self.mat, self.embedding, self.gpu)
-            norm = torch.norm(temp, 2, 0, True)
+            norm = torch.norm(temp, 2, 0, True).squeeze()
+            self.logger.info(" ".join(["{:10.2f}".format(n) for n in norm]))
 
             norm = norm.pow(p)
             self.embedding = self.embedding.mul(norm.expand_as(self.embedding))
@@ -289,12 +330,8 @@ class Embedding(object):
         embedding = embedding.numpy()
         return evaluate.evaluate(self.words, {self.words[i]: embedding[i, :] for i in range(len(self.words))})
 
-    def save_to_file(self, filename):
-        begin = time.time()
-        with open(filename, "w") as f:
-            for i in range(self.n):
-                f.write(self.words[i] + " " + " ".join([str(self.embedding[i, j]) for j in range(self.dim)]) + "\n")
-        self.logger.info("Saving embeddings: " + str(time.time() - begin))
+    def save_to_text(self, filename):
+        util.save_to_text(filename, self.embedding, self.words)
 
 if __name__ == "__main__":
     main(sys.argv)

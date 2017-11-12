@@ -7,7 +7,6 @@ import os
 import struct
 import sys
 import sparsesvd
-# import gensim
 import scipy.sparse
 import logging
 
@@ -16,7 +15,7 @@ import embedding.util as util
 # TODO: automatically match defaults from cmd line?
 
 
-def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=False):
+def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=False, checkpoint=lambda x, i: None):
 
     logger = logging.getLogger(__name__)
 
@@ -28,62 +27,41 @@ def power_iteration(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, gpu=Fa
             x, x0 = util.mm(mat, x, gpu) - beta * x0, x
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
-        if (i + 1) % norm_freq == 0:
+        if ((i + 1) % norm_freq == 0 or
+            (i + 1) == iterations):
             x, x0 = util.normalize(x, x0)
 
-    if iterations % norm_freq != 0:
-        # Only normalize if the last iteration did not
-        x, x0 = util.normalize(x, x0)
+        checkpoint(x, i)
 
     return x, x0
 
 
-def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, batch=100000):
+def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, sample=None, gpu=False, checkpoint=lambda x, i: None):
 
     logger = logging.getLogger(__name__)
+
+    if sample is None:
+        sample = util.get_sampler(mat, 100000)
 
     # TODO: alecton will need a lot more iterations (since one iteration does
     #       much less work) -- clean way to have different defaults?
     n = mat.shape[0]
-    nnz, = mat._values().shape
-    batch = min(batch, nnz)
-
-    # ind = torch.LongTensor(np.random.choice(n, [1, batch], False).repeat(2, 0))
-    # v = torch.DoubleTensor(batch).fill_(n / float(batch))
-    # samples = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
-    # if mat.is_cuda:
-    #     samples = samples.cuda()
-
-    rng = torch.FloatTensor(batch)  # TODO: seems like theres no long random on cuda
-    if mat.is_cuda:
-        rng = rng.cuda()
+    nnz = mat._nnz()
 
     for i in range(iterations):
         begin = time.time()
-        # x += eta * torch.mm(torch.spmm(samples, mat), x)
-        rng.uniform_(nnz)
-        if mat.is_cuda:  # TODO: way to do this without cases?
-            elements = rng.type(torch.cuda.LongTensor)
-        else:
-            elements = rng.type(torch.LongTensor)
-        ind = mat._indices()[:, elements]
-        v = mat._values()[elements]
-        if mat.is_cuda:
-            sample = torch.cuda.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
-        else:
-            sample = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
-        sample = nnz / float(batch) * sample
 
-        x += eta * torch.mm(sample, x)
+        m = next(sample)
+
+        x = (1 - eta) * x + eta * util.mm(m, x)
         end = time.time()
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
-        if (i + 1) % norm_freq == 0:
+        if ((i + 1) % norm_freq == 0 or
+            (i + 1) == iterations):
             x, _ = util.normalize(x, None)
 
-    if iterations % norm_freq != 0:
-        # Only normalize if the last iteration did not
-        x, _ = util.normalize(x, None)
+        checkpoint(x, i)
 
     return x
 
@@ -127,12 +105,9 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
 
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
-        if (i + 1) % norm_freq == 0:
+        if ((i + 1) % norm_freq == 0 or
+            (i + 1) == iterations):
             x, x0 = util.normalize(x, x0)
-
-    if iterations % norm_freq != 0:
-        # Only normalize if the last iteration did not
-        x, x0 = util.normalize(x, x0)
 
     return x, x0
 
@@ -245,26 +220,21 @@ def glove(mat, x, bias=None, iterations=50, eta=1e-3, batch=100000):
             # bias.index_add_(0, torch.cat([row, col]), torch.cat([step, step]))
 
             total_cost += 0.5 * (f * error * error).sum()
-            logging.info("Iteration" + str(i + 1) + "\t" + str(start // batch + 1) + " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
+            logging.info("Iteration " + str(i + 1) + "\t" + str(start // batch + 1) + " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
 
-        logging.info("Iteration" + str(i + 1) + " took " + str(time.time() - begin))
-        logging.info("Error:" + str(total_cost / nnz))
+        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
+        logging.info("Error: " + str(total_cost / nnz))
 
     return x, bias
 
 
 def sparseSVD(mat, dim):
     begin = time.time()
-    val = mat._values().numpy()
-    row = mat._indices()[0, :].numpy()
-    col = mat._indices()[1, :].numpy()
-    shape = mat.shape
-    mat = scipy.sparse.coo_matrix((val, (row, col)), shape).tocsc()
-    logging.info("Converting took" + str(time.time() - begin))
+    mat = mat.tocsc()
+    logging.info("CSC conversion took " + str(time.time() - begin))
 
     begin = time.time()
     u, s, v = sparsesvd.sparsesvd(mat, dim)
-    logging.info("Solving took" + str(time.time() - begin))
+    logging.info("Solving took " + str(time.time() - begin))
 
-    # TODO fix precision
-    return torch.FloatTensor(u.transpose())
+    return torch.from_numpy(u.transpose())

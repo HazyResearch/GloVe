@@ -35,7 +35,7 @@ def get_parser():
 
     compute_parser.add_argument("--vocab", type=str, default="vocab.txt",
                                 help="filename of vocabulary file")
-    compute_parser.add_argument("-c", "--cooccurrence", type=str, default="cooccurrence.shuf.bin",
+    compute_parser.add_argument("-c", "--cooccurrence", type=str, default="cooccurrence.bin",
                                 help="filename of cooccurrence binary")
     compute_parser.add_argument("--initial", type=str, default=None,
                                 help="filename of initial embedding vectors")
@@ -45,10 +45,16 @@ def get_parser():
                                 help="filename for embedding vectors output")
     compute_parser.add_argument("--bias", type=str, default="bias.txt",
                                 help="filename for bias output")
+    compute_parser.add_argument("--checkpoint", type=int, default=0,
+                                help="frequency of saving intermediate computations (0 to turn off)")
 
     compute_parser.add_argument("-p", "--preprocessing", type=str.lower, default="ppmi",
                                 choices=["none", "log1p", "ppmi"],
                                 help="Preprocessing of cooccurrence matrix before eigenvector computation")
+    compute_parser.add_argument("--negative", type=float, default=1.,
+                                help="Number of negative samples (for shifted PMI)")
+    compute_parser.add_argument("--alpha", type=float, default=1.,
+                                help="Context distribution smoothing parameter")
 
     compute_parser.add_argument("-s", "--solver", type=str.lower, default="pi",
                                 choices=["pi", "alecton", "vr", "sgd", "glove", "sparsesvd", "gemsim"],
@@ -61,10 +67,15 @@ def get_parser():
                                 help="Momentum used by solver")
     compute_parser.add_argument("-f", "--normfreq", type=int, default=1,
                                 help="Normalization frequency used by solver")
-    compute_parser.add_argument("-b", "--batch", type=int, default=100000,
-                                help="Batch size used by solver")
     compute_parser.add_argument("-j", "--innerloop", type=int, default=10,
                                 help="Inner loop iterations used by solver")
+    compute_parser.add_argument("-b", "--batch", type=int, default=100000,
+                                help="Batch size used by solver")
+    compute_parser.add_argument("--scheme", type=str.lower, default="element",
+                                choices=["element", "column", "row"],
+                                help="Sampling scheme")
+    compute_parser.add_argument("--sequential", type=bool, default=True,
+                                help="Whether or not to sample in order")
 
     compute_parser.add_argument("--scale", type=float, default=0.5,
                                 help="Scale on eigenvector is $\lambda_i ^ s$")

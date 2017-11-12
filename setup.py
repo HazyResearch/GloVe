@@ -16,7 +16,6 @@ setup(
         "scipy",
         "pandas",
         "sparsesvd",
-        # "gensim"
     ],
     entry_points={
         "console_scripts": [
