@@ -67,10 +67,15 @@ def get_parser():
                                 help="Momentum used by solver")
     compute_parser.add_argument("-f", "--normfreq", type=int, default=1,
                                 help="Normalization frequency used by solver")
-    compute_parser.add_argument("-b", "--batch", type=int, default=100000,
-                                help="Batch size used by solver")
     compute_parser.add_argument("-j", "--innerloop", type=int, default=10,
                                 help="Inner loop iterations used by solver")
+    compute_parser.add_argument("-b", "--batch", type=int, default=100000,
+                                help="Batch size used by solver")
+    compute_parser.add_argument("--scheme", type=str.lower, default="element",
+                                choices=["element", "column", "row"],
+                                help="Sampling scheme")
+    compute_parser.add_argument("--sequential", type=bool, default=True,
+                                help="Whether or not to sample in order")
 
     compute_parser.add_argument("--scale", type=float, default=0.5,
                                 help="Scale on eigenvector is $\lambda_i ^ s$")
