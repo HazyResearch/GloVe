@@ -19,16 +19,20 @@ ref.embedding /= ref.embedding.norm(2, 0).expand_as(ref.embedding)
 dim = ref.embedding.shape[1]
 
 method = {
-          "Power Iteration": "pi",
-          "Power Iteration with Momentum": "pim"
+          "Power Iteration": ["pi", 1],
+          "Power Iteration with Momentum": ["pim", 1],
+          "Alecton": ["alecton", 100],
          }
 
 l1 = {} # First component loss
 l2 = {} # Second component loss
 lw = {} # Worst component loss
 
+ITERATION = [i + 1 for i in range(15)]
+
 for m in method:
-    it = [i + 1 for i in range(10)]
+
+    it = [i * method[m][1] for i in ITERATION]
 
     e = embedding.Embedding(gpu=False)
 
@@ -36,7 +40,7 @@ for m in method:
     l2[m] = []
     lw[m] = []
     for i in it:
-        e.load_vectors("output/" + method[m] + "." + str(i) + ".txt")
+        e.load_vectors("output/" + method[m][0] + "." + str(i) + ".txt")
         e.embedding /= e.embedding.norm(2, 0).expand_as(e.embedding)
 
         l1[m].append(1 - abs(torch.dot(ref.embedding[:, 0], e.embedding[:, 0])))
@@ -45,7 +49,7 @@ for m in method:
 
 plt.figure(1)
 for m in method:
-    plt.semilogy(it, l1[m], label=m)
+    plt.semilogy(ITERATION, l1[m], label=m)
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
@@ -54,7 +58,7 @@ plt.savefig("first.pdf", dpi=300)
 
 plt.figure(2)
 for m in method:
-    plt.semilogy(it, l2[m], label=m)
+    plt.semilogy(ITERATION, l2[m], label=m)
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
@@ -63,7 +67,7 @@ plt.savefig("second.pdf", dpi=300)
 
 plt.figure(3)
 for m in method:
-    plt.semilogy(it, lw[m], label=m)
+    plt.semilogy(ITERATION, lw[m], label=m)
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
