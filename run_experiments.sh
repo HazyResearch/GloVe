@@ -47,3 +47,19 @@ embedding compute --solver alecton --scheme column  --batch 35645    --eta 0.000
 embedding compute --solver alecton --scheme element --batch 30333233 --eta 0.00005 -i 500 --checkpoint 2 --normfreq 2 --scale 0 -o output/alecton.ele.30333233.00005
 embedding compute --solver alecton --scheme row     --batch 35645    --eta 0.00005 -i 500 --checkpoint 2 --normfreq 2 --scale 0 -o output/alecton.row.35645.00005
 embedding compute --solver alecton --scheme column  --batch 35645    --eta 0.00005 -i 500 --checkpoint 2 --normfreq 2 --scale 0 -o output/alecton.col.35645.00005
+
+
+
+
+embedding compute --solver vr --scheme element --batch 606665 --eta 0.001   --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.ele.606665.001
+embedding compute --solver vr --scheme row     --batch 713    --eta 0.001   --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.row.713.001
+embedding compute --solver vr --scheme column  --batch 713    --eta 0.001   --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.col.713.001
+
+embedding compute --solver vr --scheme element --batch 606665 --eta 0.0001  --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.ele.606665.0001
+embedding compute --solver vr --scheme row     --batch 713    --eta 0.0001  --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.row.713.0001
+embedding compute --solver vr --scheme column  --batch 713    --eta 0.0001  --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.col.713.0001
+
+embedding compute --solver vr --scheme element --batch 606665 --eta 0.00001 --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.ele.606665.00001
+embedding compute --solver vr --scheme row     --batch 713    --eta 0.00001 --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.row.713.00001
+embedding compute --solver vr --scheme column  --batch 713    --eta 0.00001 --innerloop 100 -i 100 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.col.713.00001
+

@@ -82,14 +82,18 @@ def vr(mat, x, x0=None, iterations=50, eta=1e-3, beta=0., norm_freq=1, innerloop
             x_norm = torch.sum(x * x, 0)
             x_xtilde = torch.sum(x * xtilde, 0)
             ang = (x_xtilde / x_norm / xtilde_norm).expand_as(xtilde)
-            print(ang)
 
             m = next(sample)
 
             if beta == 0:
-                x = util.mm(m, x) - ang * util.mm(m, xtilde) + ang * gx
+                x = (1 - eta) * x + eta * (util.mm(m, x) - ang * util.mm(m, xtilde) + ang * gx)
             else:
-                x, x0 = util.mm(m, x) - ang * util.mm(m, xtilde) + ang * gx - beta * x0, x
+                x, x0 = (1 - eta) * x + eta * (util.mm(m, x) - ang * util.mm(m, xtilde) + ang * gx - beta * x0), (1 - eta) * x0 + eta * x
+
+            n = x[:, 0].norm()
+            x = x / n
+            if x0 is not None:
+                x0 = x0 / n
 
             # TODO: option to normalize in inner loop
 
