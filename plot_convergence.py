@@ -21,7 +21,9 @@ dim = ref.embedding.shape[1]
 method = {
           "Power Iteration": ["pi", 1],
           "Power Iteration with Momentum": ["pim", 1],
-          "Alecton": ["alecton", 100],
+          "Alecton 1": ["alecton.ele.606665.0001", 100],
+          "Alecton 2": ["alecton.ele.6066647.001", 10],
+          "Alecton 3": ["alecton.ele.30333233.005", 2],
          }
 
 l1 = {} # First component loss
