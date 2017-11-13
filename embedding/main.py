@@ -138,24 +138,7 @@ class Embedding(object):
             pass # TODO: load from file
 
     def load_vectors(self, initial_vectors=None, initial_bias=None):
-        # TODO: move into load
-        if initial_vectors is None:
-            begin = time.time()
-            # TODO: this initialization is really bad for sgd and glove
-            # Older versions of PyTorch do not support random_ on GPU
-            # self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
-            # self.embedding.random_(2)
-            self.embedding = self.CpuTensor(self.n, self.dim)
-            self.embedding.random_(2)
-            if self.embedgpu:
-                try:
-                    self.embedding = self.embedding.cuda()
-                except RuntimeError as e:
-                    self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
-                    self.embedgpu = False
-            self.logger.info("Random initialization took " + str(time.time() - begin))
-            self.embedding, _ = util.normalize(self.embedding)
-        else:
+        if initial_vectors is not None:
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
             begin = time.time()
@@ -168,6 +151,8 @@ class Embedding(object):
             else:
                 self.embedding = self.CpuTensor(self.embedding)
             self.logger.info("Loading initial vectors took " + str(time.time() - begin))
+        else:
+            self.embedding = None
 
         if self.gpu and not self.embedgpu:
             self.embedding = self.embedding.t().pin_memory().t()
@@ -252,6 +237,35 @@ class Embedding(object):
         self.logger.info("Preprocessing took " + str(time.time() - begin))
 
     def solve(self, mode="pi", gpu=True, scale=0.5, normalize=True, iterations=50, eta=1e-3, momentum=0., normfreq=1, innerloop=10, batch=100000, scheme="element", sequential=True, checkpoint_every=0, checkpoint_root=""):
+        if self.embedding is None:
+            begin = time.time()
+            # TODO: this initialization is really bad for sgd and glove
+            # Older versions of PyTorch do not support random_ on GPU
+            # self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
+            # self.embedding.random_(2)
+            if mode != "sgd" and mode != "glove":
+                self.embedding = self.CpuTensor(self.n, self.dim)
+                self.embedding.random_(2)
+                if self.embedgpu:
+                    try:
+                        self.embedding = self.embedding.cuda()
+                    except RuntimeError as e:
+                        self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
+                        self.embedgpu = False
+                self.logger.info("Random initialization took " + str(time.time() - begin))
+                self.embedding, _ = util.normalize(self.embedding)
+            else:
+                wc = util.sum_rows(self.mat)
+                self.embedding = torch.sqrt(wc / self.dim).view(-1, 1).repeat(1, self.dim)
+                self.embedding += (type(self.embedding)(self.n, self.dim).random_(1000) / 1000. - 0.5) / self.dim
+                if self.embedgpu:
+                    try:
+                        self.embedding = self.embedding.cuda()
+                    except RuntimeError as e:
+                        self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
+                        self.embedgpu = False
+                self.logger.info("Random initialization took " + str(time.time() - begin))
+
         if momentum == 0.:
             prev = None
         else:
@@ -288,7 +302,7 @@ class Embedding(object):
         elif mode == "vr":
             self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, eta=eta, beta=momentum, norm_freq=normfreq, innerloop=innerloop, sample=sample, gpu=gpu, checkpoint=checkpoint)
         elif mode == "sgd":
-            self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, batch=batch)
+            self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, sample=sample, gpu=gpu, checkpoint=checkpoint)
         elif mode == "glove":
             # TODO: fix defaults
             # scale = 0

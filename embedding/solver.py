@@ -108,7 +108,7 @@ def vr(mat, x, x0=None, iterations=50, eta=1e-3, beta=0., norm_freq=1, innerloop
     return x, x0
 
 
-def sgd(mat, x, iterations=50, eta=1e-3, batch=100000):
+def sgd(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint=lambda x, i: None):
     # TODO: this does not do any negative sampling
     # TODO: does this need norm_freq
 
@@ -117,27 +117,25 @@ def sgd(mat, x, iterations=50, eta=1e-3, batch=100000):
 
     for i in range(iterations):
         begin = time.time()
-        total_cost = 0.
-        for start in range(0, nnz, batch):
-            end = min(start + batch, nnz)
 
-            X = mat._values()[start:end]
+        m = next(sample)
 
-            row = mat._indices()[0, start:end]
-            col = mat._indices()[1, start:end]
+        X = m._values()
 
-            pred = (x[row, :] * x[col, :]).sum(1)
-            error = pred - torch.log(X)
-            step = -eta * error
+        row = m._indices()[0, :]
+        col = m._indices()[1, :]
 
-            dx = step.expand(dim, end - start).t().repeat(2, 1) * x[torch.cat([col, row]), :]
-            x.index_add_(0, torch.cat([row, col]), dx)
+        pred = (x[row, :] * x[col, :]).sum(1)
+        error = pred - X
+        step = -eta * error / m._values().shape[0]
 
-            total_cost += 0.5 * (error * error).sum()
-            logging.info("Iteration" + str(i + 1) + "\t" + str(start // batch + 1), " / " + str((nnz + batch - 1) // batch) + "\t" + str(time.time() - begin) + "\r")
+        dx = step.expand(dim, m._values().shape[0]).t().repeat(2, 1) * x[torch.cat([col, row]), :]
+        x.index_add_(0, torch.cat([row, col]), dx)
 
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
-        logging.info("Error: " + str(total_cost / nnz))
+        logging.info("Error: " + str(torch.abs(error).sum() / m._values().shape[0]))
+
+        checkpoint(x, i)
 
     return x
 
