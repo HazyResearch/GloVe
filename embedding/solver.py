@@ -75,10 +75,14 @@ def vr(mat, x, x0=None, iterations=50, eta=1e-3, beta=0., norm_freq=1, innerloop
     for i in range(iterations):
         begin = time.time()
         xtilde = x.clone()
+        xtilde_norm = torch.sum(xtilde * xtilde, 0)
         gx = torch.mm(mat, xtilde)
         for j in range(innerloop):
             # TODO: can ang be generated without expand_as?
-            ang = torch.sum(x * xtilde, 0).expand_as(xtilde)
+            x_norm = torch.sum(x * x, 0)
+            x_xtilde = torch.sum(x * xtilde, 0)
+            ang = (x_xtilde / x_norm / xtilde_norm).expand_as(xtilde)
+            print(ang)
 
             m = next(sample)
 
