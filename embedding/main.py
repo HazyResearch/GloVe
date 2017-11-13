@@ -286,7 +286,7 @@ class Embedding(object):
         elif mode == "alecton":
             self.embedding = solver.alecton(self.mat, self.embedding, iterations=iterations, eta=eta, norm_freq=normfreq, sample=sample, gpu=gpu, checkpoint=checkpoint)
         elif mode == "vr":
-            self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, beta=momentum, norm_freq=normfreq, batch=batch, innerloop=innerloop)
+            self.embedding, _ = solver.vr(self.mat, self.embedding, x0=prev, iterations=iterations, eta=eta, beta=momentum, norm_freq=normfreq, innerloop=innerloop, sample=sample, gpu=gpu, checkpoint=checkpoint)
         elif mode == "sgd":
             self.embedding = solver.sgd(self.mat, self.embedding, iterations=iterations, eta=eta, batch=batch)
         elif mode == "glove":

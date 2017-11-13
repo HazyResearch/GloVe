@@ -65,14 +65,12 @@ def alecton(mat, x, iterations=50, eta=1e-3, norm_freq=1, sample=None, gpu=False
     return x
 
 
-def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, innerloop=10):
-    n = mat.shape[0]
-    nnz, = mat._values().shape
-    batch = min(batch, nnz)
+def vr(mat, x, x0=None, iterations=50, eta=1e-3, beta=0., norm_freq=1, innerloop=10, sample=None, gpu=False, checkpoint=lambda x, i: None):
 
-    rng = torch.FloatTensor(batch)  # TODO: seems like theres no long random on cuda
-    if mat.is_cuda:
-        rng = rng.cuda()
+    logger = logging.getLogger(__name__)
+
+    if sample is None:
+        sample = util.get_sampler(mat, 100000)
 
     for i in range(iterations):
         begin = time.time()
@@ -82,31 +80,22 @@ def vr(mat, x, x0=None, iterations=50, beta=0., norm_freq=1, batch=100000, inner
             # TODO: can ang be generated without expand_as?
             ang = torch.sum(x * xtilde, 0).expand_as(xtilde)
 
-            rng.uniform_(nnz)
-            if mat.is_cuda:  # TODO: way to do this without cases?
-                elements = rng.type(torch.cuda.LongTensor)
-            else:
-                elements = rng.type(torch.LongTensor)
-            ind = mat._indices()[:, elements]
-            v = mat._values()[elements]
-            if mat.is_cuda:
-                sample = torch.cuda.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
-            else:
-                sample = torch.sparse.DoubleTensor(ind, v, torch.Size([n, n]))
-            sample = nnz / float(batch) * sample
+            m = next(sample)
 
             if beta == 0:
-                x = torch.mm(sample, x) - ang * torch.mm(sample, xtilde) + ang * gx
+                x = util.mm(m, x) - ang * util.mm(m, xtilde) + ang * gx
             else:
-                x, x0 = torch.mm(sample, x) - ang * torch.mm(sample, xtilde) + ang * gx - beta * x0, x
+                x, x0 = util.mm(m, x) - ang * util.mm(m, xtilde) + ang * gx - beta * x0, x
 
             # TODO: option to normalize in inner loop
 
-        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
+        logger.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
         if ((i + 1) % norm_freq == 0 or
             (i + 1) == iterations):
             x, x0 = util.normalize(x, x0)
+
+        checkpoint(x, i)
 
     return x, x0
 
