@@ -9,6 +9,9 @@ import argparse
 import logging
 import scipy
 import scipy.sparse
+import os
+import collections
+import pandas
 
 import embedding.tensor_type as tensor_type
 
@@ -215,14 +218,41 @@ def sum_rows(A):
         # return torch.from_numpy(scipy.sparse.coo_matrix((A._values().numpy(), (A._indices()[0, :].numpy(), A._indices()[1, :].numpy())), shape=A.shape).sum(1)).squeeze()
 
 
-def save_to_text(filename, embedding, words):
+def save_vectors(filename, embedding, words):
     begin = time.time()
     embedding = embedding.cpu()
     n, dim = embedding.shape
-    with open(filename, "w") as f:
-        for i in range(n):
-            f.write(words[i] + " " + " ".join([str(embedding[i, j]) for j in range(dim)]) + "\n")
+    _, extension = os.path.splitext(filename)
+    if extension == ".txt":
+        with open(filename, "w") as f:
+            for i in range(n):
+                f.write(words[i] + " " + " ".join([str(embedding[i, j]) for j in range(dim)]) + "\n")
+    elif extension == ".bin":
+        with open(filename, "wb") as f:
+            np.save(f, embedding.numpy())
+    else:
+        raise NotImplementedError("Saving embeddings to filetype with extension \"" + extension + "\" is not implemented.")
+
     logging.getLogger(__name__).info("Saving embeddings: " + str(time.time() - begin))
+
+
+def load_vectors(filename):
+    begin = time.time()
+
+    _, extension = os.path.splitext(filename)
+    if extension == ".txt":
+        # TODO: select proper precision
+        dtype = collections.defaultdict(lambda: self.CpuTensor().numpy().dtype)
+        dtype[0] = str
+        embedding = pandas.read_csv(filename, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
+    elif extension == ".bin":
+        return np.load(filename)
+    else:
+        raise NotImplementedError("Saving embeddings to filetype with extension \"" + extension + "\" is not implemented.")
+
+    logging.getLogger(__name__).info("Loading initial vectors took " + str(time.time() - begin))
+
+    return embedding
 
 
 def get_sampler(mat, batch, scheme="element", sequential=True):

@@ -6,6 +6,8 @@ import numpy as np
 import scipy.stats
 import logging
 
+import embedding.util as util
+
 
 def evaluate(words, vectors):
     # TODO: give option to just pass in vocab and vectors (not filename)
@@ -13,11 +15,8 @@ def evaluate(words, vectors):
         with open(words, 'r') as f:
             words = [x.rstrip().split(' ')[0] for x in f.readlines()]
     if type(vectors) == str:
-        with open(vectors, 'r') as f:
-            vectors = {}
-            for line in f:
-                vals = line.rstrip().split(' ')
-                vectors[vals[0]] = [float(x) for x in vals[1:]]
+        vectors = util.load_vectors(vectors)
+        vectors = {words[i]: vectors[i, :] for i in range(len(words))}
 
     vocab_size = len(words)
     vocab = {w: idx for idx, w in enumerate(words)}

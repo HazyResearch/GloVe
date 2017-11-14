@@ -68,7 +68,7 @@ def main(argv=None):
         embedding.load_cooccurrence(args.vocab, args.cooccurrence, args.preprocessing, args.negative, args.alpha)
         embedding.load_vectors(args.initial, args.initialbias)
         embedding.solve(mode=args.solver, gpu=args.gpu, scale=args.scale, normalize=args.normalize, iterations=args.iterations, eta=args.eta, momentum=args.momentum, normfreq=args.normfreq, innerloop=args.innerloop, batch=args.batch, scheme=args.scheme, sequential=args.sequential, checkpoint_every=args.checkpoint, checkpoint_root=args.vectors)
-        embedding.save_to_text(args.vectors)
+        embedding.save_vectors(args.vectors)
     elif args.task == "evaluate":
         evaluate.evaluate(args.vocab, args.vectors)
 
@@ -139,18 +139,13 @@ class Embedding(object):
 
     def load_vectors(self, initial_vectors=None, initial_bias=None):
         if initial_vectors is not None:
+            self.embedding = util.load_vectors(initial_vectors)
             # TODO: verify that the vectors have the right set of words
             # verify that the vectors have a matching dim
-            begin = time.time()
-            # TODO: select proper precision
-            dtype = collections.defaultdict(lambda: self.CpuTensor().numpy().dtype)
-            dtype[0] = str
-            self.embedding = pandas.read_csv(initial_vectors, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
             if self.embedgpu:
                 self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.embedding)
             else:
                 self.embedding = self.CpuTensor(self.embedding)
-            self.logger.info("Loading initial vectors took " + str(time.time() - begin))
         else:
             self.embedding = None
 
@@ -275,12 +270,11 @@ class Embedding(object):
                 prev = self.CpuTensor(self.n, self.dim)
             prev.zero_()
 
-        if checkpoint_root[-4:] == ".txt":
-            checkpoint_root = checkpoint_root[:-4]
+        checkpoint_root, extension = os.path.splitext(checkpoint_root)
 
         def checkpoint(x, i):
             if checkpoint_every > 0 and (i + 1) % checkpoint_every == 0:
-                util.save_to_text(checkpoint_root + "." + str(i + 1) + ".txt", x, self.words)
+                util.save_vectors(checkpoint_root + "." + str(i + 1) + extension, x, self.words)
 
         if (mode == "alecton" or
             mode == "vr" or
@@ -344,8 +338,8 @@ class Embedding(object):
         embedding = embedding.numpy()
         return evaluate.evaluate(self.words, {self.words[i]: embedding[i, :] for i in range(len(self.words))})
 
-    def save_to_text(self, filename):
-        util.save_to_text(filename, self.embedding, self.words)
+    def save_vectors(self, filename):
+        util.save_vectors(filename, self.embedding, self.words)
 
 if __name__ == "__main__":
     main(sys.argv)
