@@ -246,7 +246,7 @@ def load_vectors(filename):
         dtype[0] = str
         embedding = pandas.read_csv(filename, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
     elif extension == ".bin":
-        return np.load(filename)
+        embedding = np.load(filename)
     else:
         raise NotImplementedError("Saving embeddings to filetype with extension \"" + extension + "\" is not implemented.")
 
