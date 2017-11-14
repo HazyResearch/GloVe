@@ -73,8 +73,8 @@ for eta in 05 005 0005 00005
 do
     for beta in 0 38025
     do
-        embedding compute --solver vr --scheme element --batch 30333233 --eta 0.${eta} --beta ${beta} --innerloop 10 -i 250 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.ele.30333233.${eta}.${beta}
-        embedding compute --solver vr --scheme row     --batch 35645    --eta 0.${eta} --beta ${beta} --innerloop 10 -i 250 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.row.35645.${eta}.${beta}
-        embedding compute --solver vr --scheme column  --batch 35645    --eta 0.${eta} --beta ${beta} --innerloop 10 -i 250 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.col.35645.${eta}.${beta}
+        embedding compute --solver vr --scheme element --batch 30333233 --eta 0.${eta} --beta ${beta} --innerloop 2 -i 250 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.ele.30333233.${eta}.${beta}
+        embedding compute --solver vr --scheme row     --batch 35645    --eta 0.${eta} --beta ${beta} --innerloop 2 -i 250 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.row.35645.${eta}.${beta}
+        embedding compute --solver vr --scheme column  --batch 35645    --eta 0.${eta} --beta ${beta} --innerloop 2 -i 250 --checkpoint 1 --normfreq 1 --scale 0 -o output/vr.col.35645.${eta}.${beta}
     done
 done
