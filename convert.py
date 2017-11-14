@@ -15,6 +15,9 @@ for filename in os.listdir("output"):
         print(filename)
         if (not pathlib.Path(binname).is_file() or
             os.stat(binname).st_mtime < os.stat(filename).st_mtime):
-            embed.load_vectors(filename)
-            embed.save_vectors(binname)
+            try:
+                embed.load_vectors(filename)
+                embed.save_vectors(binname)
+            except:
+                pass
 
