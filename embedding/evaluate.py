@@ -36,7 +36,8 @@ def evaluate(words, vectors):
 
     score = {}
     # evaluate_human_sim()
-    score["similarity-dot"], score["similarity-cos"] = evaluate_vectors_sim(W, vocab, ivocab)
+    score["wordsim353-dot"], score["wordsim353-cos"] = evaluate_vectors_sim(W, vocab, ivocab, "wordsim353")
+    score["rw-dot"], score["rw-cos"] = evaluate_vectors_sim(W, vocab, ivocab, "rw")
     score["analogy-add"] = evaluate_vectors_analogy(W_norm, vocab, ivocab, "add")
     score["analogy-mul"] = evaluate_vectors_analogy(W_norm, vocab, ivocab, "mul")
 
@@ -137,12 +138,16 @@ def evaluate_vectors_analogy(W, vocab, ivocab, method="add"):
     return correct_tot / float(count_tot)
 
 
-def evaluate_vectors_sim(W, vocab, ivocab):
+def evaluate_vectors_sim(W, vocab, ivocab, task="wordsim353"):
     """Evaluate the trained word vectors on the WordSimilarity-353 task."""
 
-    filename = 'combined.csv'
-    # filename = 'set1.csv'
-    filename = os.path.join(os.path.dirname(__file__), "data", "eval", "wordsim353", filename)
+    filename = os.path.join(os.path.dirname(__file__), "data", "eval")
+    if task == "wordsim353":
+        filename = os.path.join(filename, "wordsim353", "combined.csv")
+    elif task == "rw":
+        filename = os.path.join(os.path.dirname(__file__), "data", "eval", "rw", "rw.txt")
+    else:
+        raise NotImplementedError("Similarity task \"" + task + "\" is not recognized.")
 
     with open(filename, 'r') as f:
         data = [line.rstrip().split(',') for line in f][1:]
