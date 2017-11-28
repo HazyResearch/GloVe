@@ -146,11 +146,10 @@ class Embedding(object):
                 self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.embedding)
             else:
                 self.embedding = self.CpuTensor(self.embedding)
+                if self.gpu:
+                    self.embedding = self.embedding.t().pin_memory().t()
         else:
             self.embedding = None
-
-        if self.gpu and not self.embedgpu:
-            self.embedding = self.embedding.t().pin_memory().t()
 
         if initial_bias is not None:
             # TODO: merge this with init bias in glove
@@ -260,6 +259,9 @@ class Embedding(object):
                         self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
                         self.embedgpu = False
                 self.logger.info("Random initialization took " + str(time.time() - begin))
+
+            if self.gpu and not self.embedgpu:
+                self.embedding = self.embedding.t().pin_memory().t()
 
         if momentum == 0.:
             prev = None
