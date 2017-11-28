@@ -53,9 +53,13 @@ method = [
           ["VR Row (1%, 0.00001)",            "vr.row.713.00001.0",       1, (1.00, 0.00, 0.00), "--"],
           ["VR Column (1%, 0.00001)",         "vr.col.713.00001.0",       1, (1.00, 0.00, 0.00), "-"],
 
-          ["VR Element (1%, 0.000001)",        "vr.ele.606665.000001.0",  1, (0.50, 0.00, 0.00), ":"],
-          ["VR Row (1%, 0.000001)",            "vr.row.713.000001.0",     1, (0.50, 0.00, 0.00), "--"],
-          ["VR Column (1%, 0.000001)",         "vr.col.713.00001.0",      1, (0.50, 0.00, 0.00), "-"],
+          ["VR Element (1%, 0.000001)",        "vr.ele.606665.000001.0",  1, (0.75, 0.00, 0.00), ":"],
+          ["VR Row (1%, 0.000001)",            "vr.row.713.000001.0",     1, (0.75, 0.00, 0.00), "--"],
+          ["VR Column (1%, 0.000001)",         "vr.col.713.000001.0",      1, (0.75, 0.00, 0.00), "-"],
+
+          ["VR Element (1%, 0.0000001)",        "vr.ele.606665.0000001.0",  1, (0.50, 0.00, 0.00), ":"],
+          ["VR Row (1%, 0.0000001)",            "vr.row.713.0000001.0",     1, (0.50, 0.00, 0.00), "--"],
+          ["VR Column (1%, 0.0000001)",         "vr.col.713.0000001.0",      1, (0.50, 0.00, 0.00), "-"],
          ]
 
 l1 = {} # First component loss
@@ -96,17 +100,20 @@ plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
 plt.title("Estimation of First Eigenvector")
-plt.savefig("first.pdf", dpi=300)
+plt.savefig("first.png", dpi=300)
 
 plt.figure(2)
 for j in range(len(method)):
     m = method[j][0]
-    plt.semilogy(ITERATION, l2[m], label=method[j][0], color=method[j][3], linestyle=method[j][4])
+    if "VR" in m:
+        plt.semilogy(ITERATION[:100], l2[m][:100], label=method[j][0], color=method[j][3], linestyle=method[j][4])
+    else:
+        plt.semilogy(ITERATION, l2[m], label=method[j][0], color=method[j][3], linestyle=method[j][4])
 plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
 plt.title("Estimation of Second Eigenvector")
-plt.savefig("second.pdf", dpi=300)
+plt.savefig("second.png", dpi=300)
 
 plt.figure(3)
 for j in range(len(method)):
@@ -116,7 +123,7 @@ plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
 plt.title("Estimation of Worst Eigenvector")
-plt.savefig("worst.pdf", dpi=300)
+plt.savefig("worst.png", dpi=300)
 
 plt.figure(4)
 for j in range(len(method)):
@@ -126,4 +133,4 @@ plt.legend()
 plt.xlabel("Iterations")
 plt.ylabel("Loss")
 plt.title("Estimation of Last (" + str(ref.embedding.shape[1]) + ") Eigenvector")
-plt.savefig("last.pdf", dpi=300)
+plt.savefig("last.png", dpi=300)
