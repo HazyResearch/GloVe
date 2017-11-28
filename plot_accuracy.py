@@ -24,7 +24,7 @@ embed.load_cooccurrence()
 def load_eval(root):
     print("load_eval " + root)
     pkl_filename = root + ".eval.pkl"
-    vec_filename = root + ".txt"
+    vec_filename = root + ".bin"
     if (pathlib.Path(pkl_filename).is_file() and
         os.stat(pkl_filename).st_mtime > os.stat(vec_filename).st_mtime):
         # TODO: check age of evaluate.py
@@ -63,7 +63,7 @@ method = [
 
 score = collections.defaultdict(lambda : collections.defaultdict(list))
 
-ITERATION = [i + 1 for i in range(50)]
+ITERATION = [i + 1 for i in range(200)]
 
 pool = Pool()
 pool.map(load_eval, ["output/" + method[j][1] + "." + str(i * method[j][2]) for i in ITERATION for j in range(len(method))])
