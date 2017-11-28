@@ -69,6 +69,8 @@ def vr(mat, x, x0=None, iterations=50, eta=1e-3, beta=0., norm_freq=1, innerloop
 
     logger = logging.getLogger(__name__)
 
+    n, dim = x.shape
+
     if sample is None:
         sample = util.get_sampler(mat, 100000)
 
@@ -77,6 +79,8 @@ def vr(mat, x, x0=None, iterations=50, eta=1e-3, beta=0., norm_freq=1, innerloop
         xtilde = x.clone()
         xtilde_norm = torch.sum(xtilde * xtilde, 0)
         gx = torch.mm(mat, xtilde)
+        cumprod = type(x)(1, dim)
+        cumprod.fill_(1)
         for j in range(innerloop):
             # TODO: can ang be generated without expand_as?
             x_norm = torch.sum(x * x, 0)
@@ -90,15 +94,18 @@ def vr(mat, x, x0=None, iterations=50, eta=1e-3, beta=0., norm_freq=1, innerloop
             else:
                 x, x0 = (1 - eta) * x + eta * (util.mm(m, x) - ang * util.mm(m, xtilde) + ang * gx - beta * x0), (1 - eta) * x0 + eta * x
 
-            n = x[:, 0].norm()
-            x = x / n
+            n = x.norm(2, 0, True)
+            x /= n.expand_as(x)
             if x0 is not None:
-                x0 = x0 / n
-
+                x0 /= n.expand_as(x0)
+            cumprod *= n / n[0, 0]
             # TODO: option to normalize in inner loop
 
         logger.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
 
+        x *= cumprod.expand_as(x)
+        if x0 is not None:
+            x0 *= cumprod.expand_as(x0)
         if ((i + 1) % norm_freq == 0 or
             (i + 1) == iterations):
             x, x0 = util.normalize(x, x0)
