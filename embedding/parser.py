@@ -57,7 +57,7 @@ def get_parser():
                                 help="Context distribution smoothing parameter")
 
     compute_parser.add_argument("-s", "--solver", type=str.lower, default="pi",
-                                choices=["pi", "alecton", "vr", "sgd", "glove", "sparsesvd", "gemsim"],
+                                choices=["pi", "alecton", "vr", "sgd", "glove", "sparsesvd", "gemsim", "euclidean", "poincare"],
                                 help="Solver used to find top eigenvectors")
     compute_parser.add_argument("-i", "--iterations", type=int, default=50,
                                 help="Iterations used by solver")

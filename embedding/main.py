@@ -237,28 +237,26 @@ class Embedding(object):
             # Older versions of PyTorch do not support random_ on GPU
             # self.embedding = tensor_type.to_gpu(self.CpuTensor)(self.n, self.dim)
             # self.embedding.random_(2)
-            if mode != "sgd" and mode != "glove":
-                self.embedding = self.CpuTensor(self.n, self.dim)
-                self.embedding.random_(2)
-                if self.embedgpu:
-                    try:
-                        self.embedding = self.embedding.cuda()
-                    except RuntimeError as e:
-                        self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
-                        self.embedgpu = False
-                self.logger.info("Random initialization took " + str(time.time() - begin))
-                self.embedding, _ = util.normalize(self.embedding)
-            else:
+            if mode == "sgd" or mode == "glove":
                 wc = util.sum_rows(self.mat)
                 self.embedding = torch.sqrt(wc / self.dim).view(-1, 1).repeat(1, self.dim)
                 self.embedding += (type(self.embedding)(self.n, self.dim).random_(1000) / 1000. - 0.5) / self.dim
-                if self.embedgpu:
-                    try:
-                        self.embedding = self.embedding.cuda()
-                    except RuntimeError as e:
-                        self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
-                        self.embedgpu = False
-                self.logger.info("Random initialization took " + str(time.time() - begin))
+            elif mode == "euclidean" or mode =="poincare":
+                self.embedding = (self.CpuTensor(self.n, self.dim).random_(1000) / 1000. - 0.5) / math.sqrt(self.dim)
+            else:
+                self.embedding = self.CpuTensor(self.n, self.dim)
+                self.embedding.random_(2)
+                # TODO: normalize on GPU?
+                self.embedding, _ = util.normalize(self.embedding)
+
+            if self.embedgpu:
+                try:
+                    self.embedding = self.embedding.cuda()
+                except RuntimeError as e:
+                    self.logger.warn("Embeddings do not fit on GPU. Storing on CPU instead.")
+                    self.embedgpu = False
+
+            self.logger.info("Random initialization took " + str(time.time() - begin))
 
             if self.gpu and not self.embedgpu:
                 self.embedding = self.embedding.t().pin_memory().t()
@@ -280,7 +278,9 @@ class Embedding(object):
 
         if (mode == "alecton" or
             mode == "vr" or
-            mode == "sgd"):
+            mode == "sgd" or
+            mode == "euclidean" or
+            mode == "poincare"):
             if (type(self.mat) == scipy.sparse.csr.csr_matrix or
                 type(self.mat) == scipy.sparse.coo.coo_matrix or
                 type(self.mat) == scipy.sparse.csc.csc_matrix):
@@ -305,6 +305,10 @@ class Embedding(object):
             self.embedding, bias = solver.glove(self.mat, self.embedding, bias=self.bias, iterations=iterations, eta=eta, batch=batch)
         elif mode == "sparsesvd":
             self.embedding = solver.sparseSVD(self.mat, self.dim)
+        elif mode == "euclidean":
+            self.embedding = solver.poincare(self.mat, self.embedding, iterations=iterations, eta=eta, sample=sample, gpu=gpu, checkpoint=checkpoint, hyperbolic=False)
+        elif mode == "poincare":
+            self.embedding = solver.poincare(self.mat, self.embedding, iterations=iterations, eta=eta, sample=sample, gpu=gpu, checkpoint=checkpoint)
 
         self.scale(scale)
         if normalize:

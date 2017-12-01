@@ -9,6 +9,7 @@ import sys
 import sparsesvd
 import scipy.sparse
 import logging
+import math
 
 import embedding.util as util
 
@@ -140,6 +141,70 @@ def sgd(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint=lamb
         x.index_add_(0, torch.cat([row, col]), dx)
 
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
+        logging.info("Error: " + str(torch.abs(error).sum() / m._values().shape[0]))
+
+        checkpoint(x, i)
+
+    return x
+
+
+def poincare(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint=lambda x, i: None, hyperbolic=True):
+    # TODO: this does not do any negative sampling
+    # TODO: does this need norm_freq
+
+    nnz = mat._nnz()
+    n, dim = x.shape
+
+    r = 1
+    t = 1.
+
+    for i in range(iterations):
+        begin = time.time()
+
+        m = next(sample)
+
+        X = m._values()
+
+        row = m._indices()[0, :]
+        col = m._indices()[1, :]
+
+        u = x[row, :]
+        v = x[col, :]
+
+        d = (u - v)
+        if hyperbolic:
+            d = 1 + 2 * torch.sum(d * d, 1) / (1 - torch.sum(u * u, 1)) / (1 - torch.sum(v * v, 1))
+            d = torch.log(d + torch.sqrt((d - 1) * (d + 1))) # arccosh
+        else:
+            d = torch.sqrt(torch.sum(d * d, 1))
+
+        dlogpdd = -torch.exp(d / t) / (t * math.exp(r / t) + t * torch.exp(d / t))
+
+        dddu = 2 * (u - v)
+        dddv = 2 * (v - u)
+        if hyperbolic:
+            dddu = torch.pow((1 - torch.sum(u * u, 1, True)), 2).expand_as(dddu) / 4 * dddu
+            dddv = torch.pow((1 - torch.sum(v * v, 1, True)), 2).expand_as(dddv) / 4 * dddv
+        
+        dx = torch.cat([dlogpdd.view(-1, 1).expand_as(dddu) * dddu, dlogpdd.view(-1, 1).expand_as(dddv) * dddv])
+        x.index_add_(0, torch.cat([row, col]), eta * dx)
+
+        logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
+        p = 1. / (torch.exp((d - r) / t) + 1)
+        error = torch.log(p)
+        logging.info("Error: " + str(torch.abs(error).sum() / m._values().shape[0]))
+
+        u = x[row, :]
+        v = x[col, :]
+
+        d = (u - v)
+        if hyperbolic:
+            d = 1 + 2 * torch.sum(d * d, 1) / (1 - torch.sum(u * u, 1)) / (1 - torch.sum(v * v, 1))
+            d = torch.log(d + torch.sqrt((d - 1) * (d + 1))) # arccosh
+        else:
+            d = torch.sqrt(torch.sum(d * d, 1))
+        p = 1. / (torch.exp((d - r) / t) + 1)
+        error = torch.log(p)
         logging.info("Error: " + str(torch.abs(error).sum() / m._values().shape[0]))
 
         checkpoint(x, i)
