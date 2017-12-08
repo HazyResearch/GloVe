@@ -13,6 +13,7 @@ import logging
 import pandas
 import collections
 import scipy
+import numba
 
 import embedding.solver as solver
 import embedding.util as util
@@ -220,6 +221,18 @@ class Embedding(object):
                 logging.debug("Filtering non-zeros took " + str(time.time() - s)); s = time.time()
             self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
             # self.mat = self.mat.coalesce()
+        elif mode == "negative":
+            s = time.time()
+            d = self.mat.to_dense()
+            # ind = torch.LongTensor(np.array([np.arange(self.n).repeat(self.n), np.tile(np.arange(self.n), self.n)]))
+            ind = torch.LongTensor(2, self.n)
+            for i in range(self.n):
+                ind[1, i] = i
+            ind = ind.repeat(1, self.n)
+            for i in range(self.n):
+                ind[0, (i * self.n):((i + 1) * self.n)] = i
+            v = d.view(self.n * self.n)
+            self.mat = type(self.mat)(ind, v, torch.Size([self.n, self.n]))
 
         if self.gpu and not self.matgpu:
             s = time.time()
