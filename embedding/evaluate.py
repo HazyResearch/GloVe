@@ -160,12 +160,12 @@ def evaluate_vectors_sim(W, vocab, ivocab, task="wordsim353"):
     pred = np.sum(np.multiply(W[words[:, 0], :], W[words[:, 1], :]), 1)
     rho_dot, p = scipy.stats.spearmanr(score, pred)
     logger = logging.getLogger(__name__)
-    logger.info("WordSimilarity-353 Spearman Correlation (dot): %.3f\n" % rho_dot)
+    logger.info(task + " Spearman Correlation (dot): %.3f\n" % rho_dot)
 
     pred = np.sum(np.multiply(W[words[:, 0], :], W[words[:, 1], :]), 1) / np.sum(np.multiply(W[words[:, 0], :], W[words[:, 0], :]), 1) / np.sum(np.multiply(W[words[:, 1], :], W[words[:, 1], :]), 1)
     rho_cos, p = scipy.stats.spearmanr(score, pred)
     logger = logging.getLogger(__name__)
-    logger.info("WordSimilarity-353 Spearman Correlation (cos): %.3f\n" % rho_cos)
+    logger.info(task + " Spearman Correlation (cos): %.3f\n" % rho_cos)
 
     return rho_dot, rho_cos
 
