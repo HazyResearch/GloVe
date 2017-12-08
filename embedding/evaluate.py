@@ -32,6 +32,8 @@ def evaluate(words, vectors):
     # normalize each word vector to unit variance
     W_norm = np.zeros(W.shape)
     d = (np.sum(W ** 2, 1) ** (0.5))
+    epsilon = 1e-10
+    d[d < epsilon] = epsilon
     W_norm = (W.T / d).T
 
     score = {}
