@@ -150,12 +150,11 @@ def sgd(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint=lamb
 
 def poincare(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint=lambda x, i: None, hyperbolic=True):
     # TODO: this does not do any negative sampling
-    # TODO: does this need norm_freq
 
     nnz = mat._nnz()
     n, dim = x.shape
 
-    r = 1
+    r = 5.
     t = 1.
 
     for i in range(iterations):
@@ -164,6 +163,7 @@ def poincare(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint
         m = next(sample)
 
         X = m._values()
+        X = (X != 0).type(type(X))
 
         row = m._indices()[0, :]
         col = m._indices()[1, :]
@@ -178,7 +178,7 @@ def poincare(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint
         else:
             d = torch.sqrt(torch.sum(d * d, 1))
 
-        dlogpdd = -torch.exp(d / t) / (t * math.exp(r / t) + t * torch.exp(d / t))
+        dlogpdd = -(2 * X - 1) * torch.exp(d / t) / (t * math.exp(r / t) + t * torch.exp(d / t))
 
         dddu = 2 * (u - v)
         dddv = 2 * (v - u)
@@ -189,10 +189,16 @@ def poincare(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint
         dx = torch.cat([dlogpdd.view(-1, 1).expand_as(dddu) * dddu, dlogpdd.view(-1, 1).expand_as(dddv) * dddv])
         x.index_add_(0, torch.cat([row, col]), eta * dx)
 
+        if hyperbolic:
+            eps = 1e-5
+            norm = torch.sum(x[torch.cat([row, col]), :] * x[torch.cat([row, col]), :], 1, True) + eps
+            norm.clamp_(min=1)
+            x[torch.cat([row, col]), :] /= norm.expand_as(x[torch.cat([row, col]), :])
+
         logging.info("Iteration " + str(i + 1) + " took " + str(time.time() - begin))
-        p = 1. / (torch.exp((d - r) / t) + 1)
+        p = (1 - X) + (2 * X - 1) * 1. / (torch.exp((d - r) / t) + 1)
         error = torch.log(p)
-        logging.info("Error: " + str(torch.abs(error).sum() / m._values().shape[0]))
+        logging.info("Loss: " + str(error.sum() / m._values().shape[0]))
 
         u = x[row, :]
         v = x[col, :]
@@ -203,9 +209,9 @@ def poincare(mat, x, iterations=50, eta=1e-3, sample=None, gpu=False, checkpoint
             d = torch.log(d + torch.sqrt((d - 1) * (d + 1))) # arccosh
         else:
             d = torch.sqrt(torch.sum(d * d, 1))
-        p = 1. / (torch.exp((d - r) / t) + 1)
+        p = (1 - X) + (2 * X - 1) * 1. / (torch.exp((d - r) / t) + 1)
         error = torch.log(p)
-        logging.info("Error: " + str(torch.abs(error).sum() / m._values().shape[0]))
+        logging.info("Loss: " + str(error.sum() / m._values().shape[0]))
 
         checkpoint(x, i)
 
