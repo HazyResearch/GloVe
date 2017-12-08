@@ -32,7 +32,7 @@ with open(src, "r") as src:
 n = len(contains)
 print(n)
 m = {}
-i = 0
+i = 1
 while len(contains) != 0:
     v = contains.pop()
     m[v] = i
