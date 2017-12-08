@@ -49,7 +49,7 @@ def get_parser():
                                 help="frequency of saving intermediate computations (0 to turn off)")
 
     compute_parser.add_argument("-p", "--preprocessing", type=str.lower, default="ppmi",
-                                choices=["none", "log1p", "ppmi"],
+                                choices=["none", "log1p", "ppmi", "negative"],
                                 help="Preprocessing of cooccurrence matrix before eigenvector computation")
     compute_parser.add_argument("--negative", type=float, default=1.,
                                 help="Number of negative samples (for shifted PMI)")
