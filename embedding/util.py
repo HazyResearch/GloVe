@@ -244,7 +244,12 @@ def load_vectors(filename):
         # TODO: select proper precision
         dtype = collections.defaultdict(lambda: self.CpuTensor().numpy().dtype)
         dtype[0] = str
-        embedding = pandas.read_csv(filename, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
+        try:
+            embedding = pandas.read_csv(filename, sep=" ", header=None, dtype=dtype).iloc[:, 1:].as_matrix()
+        except pandas.io.common.CParserError:
+            logging.getLogger(__name__).warn("pandas ran into an error. Manually loading \"" + filename + "\"")
+            with open(filename, "r") as f:
+                embedding = np.array([[float(v) for v in line.split()[1:]] for line in f])
     elif extension == ".bin":
         embedding = np.load(filename)
     else:
